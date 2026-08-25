@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { hashPassword, randomBase64Url } from "../worker/lib/crypto";
 
 type Mode = "local" | "remote";
@@ -54,20 +53,12 @@ const parseArgs = () => {
   };
 };
 
-const stripJsonComments = (input: string) =>
-  input.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-
-const loadDatabaseName = async () => {
-  try {
-    const raw = await readFile("wrangler.jsonc", "utf-8");
-    const json = JSON.parse(stripJsonComments(raw));
-    const name = json?.d1_databases?.[0]?.database_name;
-    if (typeof name === "string" && name.length > 0) return name;
-  } catch {
-    // fall through to env
-  }
-  return process.env.D1_DATABASE_NAME || "app-db";
-};
+/**
+ * Wrangler resolves a D1 binding name against wrangler.jsonc, so targeting
+ * "DB" works for any site without this script needing to know the database's
+ * real name. Override with D1_DATABASE_NAME if you have several databases.
+ */
+const databaseTarget = () => process.env.D1_DATABASE_NAME || "DB";
 
 const escapeSql = (value: string) => value.replace(/'/g, "''");
 
@@ -140,7 +131,7 @@ const run = async () => {
   `;
 
   const sql = `${insertUser}${updatePassword}${ensureAdminRole}`;
-  const dbName = await loadDatabaseName();
+  const dbName = databaseTarget();
   const modeFlag = mode === "remote" ? "--remote" : "--local";
 
   const proc = Bun.spawn(

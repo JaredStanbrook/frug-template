@@ -55,7 +55,13 @@ Path aliases: `@server/*` → `worker/*`, `@views/*` → `worker/views/*`,
 
 - Copy `.dev.vars.example` to `.dev.vars` for local secrets. It is git-ignored.
 - `JWT_SECRET` is set with `wrangler secret put` in production — never as a
-  `var` in `wrangler.jsonc`.
+  `var` in `wrangler.jsonc`. See `docs/provisioning.md` for every binding and
+  secret, and the four ways to supply each.
+- Production is the **top level** of `wrangler.jsonc`; `env.staging` is a
+  separate worker script that **inherits nothing** — every binding and var is
+  repeated there deliberately, and its secrets are set with `--env staging`.
+- `SESSION_DURATION` and `LOCKOUT_DURATION` are milliseconds; `JWT_EXPIRY` is
+  **seconds**. Mixing them up is silent and gives multi-year sessions.
 - `RP_ID` and `ORIGIN` must match the deployed domain or passkeys fail silently.
 - Never return a raw `users` row. `Auth.toSafeUser()` strips `passwordHash`,
   `pin` and `totpSecret`; every exit from the auth service goes through it.

@@ -11,11 +11,14 @@ import type { Auth } from "./services/auth.service";
  * you add one to wrangler.jsonc so it stays typed at the call site.
  */
 export type Vars = {
+  /** "production" | "staging" | whatever you name an env in wrangler.jsonc. */
+  ENVIRONMENT: string;
   APP_NAME: string;
   APP_TAGLINE: string;
   APP_LOCALE: string;
   APP_CURRENCY: string;
   ORIGIN: string;
+  /** A Wrangler secret, never a var. Signs the session JWT. */
   JWT_SECRET: string;
   AUTH_METHODS: string;
   ROLES_AVAILABLE: string;
@@ -27,6 +30,15 @@ export type Vars = {
   RP_ID: string;
 };
 
+/**
+ * Cloudflare's edge rate limiter, declared under `ratelimits` in
+ * wrangler.jsonc. Not part of the generated Env types in every Wrangler
+ * version, so it is declared here.
+ */
+export interface RateLimiter {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
 export type Bindings = Vars & {
   /** Auth challenges, session metadata, short-lived caches. */
   KV: KVNamespace;
@@ -36,6 +48,8 @@ export type Bindings = Vars & {
   ASSETS: Fetcher;
   /** Optional file storage. Remove here and in wrangler.jsonc if unused. */
   R2: R2Bucket;
+  /** Per-IP throttle on the auth API. See worker/routes/api/auth.ts. */
+  RATE_LIMITER: RateLimiter;
 };
 
 export type Variables = {

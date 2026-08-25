@@ -1,31 +1,112 @@
 {
   // =====================================================================
-  // TEMPLATE CONFIG — rename everything marked CHANGE_ME before deploying.
-  // See README.md "Starting a new site" for the full checklist.
+  // TEMPLATE CONFIG
+  //
+  // Every value marked CHANGE_ME is per-site and must be filled in before
+  // deploying. See docs/provisioning.md for how to obtain each one — via
+  // the wrangler CLI, the Cloudflare dashboard, or a GitHub secret.
+  //
+  // Quick audit of what is left to do:
+  //   grep -in "change.me\|0000000" wrangler.jsonc
   // =====================================================================
   "$schema": "node_modules/wrangler/config-schema.json",
+
+  // CHANGE_ME — the Worker script name. This is the identity Cloudflare
+  // stores secrets, routes and deployments against, so renaming it later
+  // creates a *new* worker and orphans the old one's secrets.
   "name": "frug-app",
+
   "compatibility_date": "2025-01-01",
   "main": "worker/index.ts",
+
   "assets": {
     "directory": "./dist/client",
     "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "single-page-application",
+    // This app server-renders every page, so unmatched paths are handled
+    // by the worker's own notFound, not by an SPA shell. "none" keeps the
+    // asset layer from swallowing 404s that should reach your router.
+    "not_found_handling": "none",
   },
 
-  // Attach a custom domain once the zone exists in your Cloudflare account.
-  // Until then, `wrangler deploy` publishes to <name>.<subdomain>.workers.dev.
-  // "routes": [
-  // 	{
-  // 		"pattern": "CHANGE_ME.example.com",
-  // 		"zone_name": "example.com",
-  // 		"custom_domain": true
-  // 	}
-  // ],
+  "observability": {
+    "enabled": true,
+  },
+
+  "dev": {
+    "port": 3000,
+    "local_protocol": "http",
+  },
+
+  // ---------------------------------------------------------------------
+  // PRODUCTION lives at the TOP LEVEL, so a plain `wrangler deploy` targets
+  // the live site and keeps using the existing worker — and the secrets
+  // already set on it.
+  //
+  // Named environments (see "env" at the bottom) INHERIT NOTHING. Every
+  // binding and var must be repeated there, and each is a separate worker
+  // script with its own secrets. This is the single most common way a
+  // staging deploy silently loses its database or its JWT_SECRET.
+  // ---------------------------------------------------------------------
+
+  // CHANGE_ME — delete this block to publish on <name>.<subdomain>.workers.dev
+  // instead. `zone_name` is only required when the record is ambiguous;
+  // a custom_domain on a zone in the same account resolves without it.
+  "routes": [
+    {
+      "pattern": "change-me.example.com",
+      "custom_domain": true,
+    },
+  ],
+
+  // CHANGE_ME — `bunx wrangler d1 create <name>` prints both values.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "change-me-db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "drizzle",
+    },
+  ],
+
+  // CHANGE_ME — `bunx wrangler kv namespace create KV` prints the id.
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "00000000000000000000000000000000",
+    },
+  ],
+
+  // CHANGE_ME — `bunx wrangler r2 bucket create <name>`.
+  // Optional: delete this block and `R2` in worker/types.ts if the site
+  // stores no files.
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "change-me-files",
+    },
+  ],
+
+  // Edge rate limiting. `namespace_id` is an arbitrary number you pick per
+  // limiter within this worker — it is NOT a resource to provision, so
+  // nothing here needs changing. Used by the auth API to throttle login
+  // attempts by IP before they reach the database.
+  "ratelimits": [
+    {
+      "name": "RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 20,
+        "period": 60,
+      },
+    },
+  ],
 
   "vars": {
+    "ENVIRONMENT": "production",
+
     // --- BRANDING ---
+    // CHANGE_ME — how the site names itself in the title, nav and footer.
     "APP_NAME": "Frug",
     "APP_TAGLINE": "A Cloudflare Workers starter with batteries included.",
     "APP_LOCALE": "en-AU",
@@ -34,35 +115,52 @@
     // --- CORE AUTH ---
     // Enabled methods: passkey, password, pin, totp, email, sms
     "AUTH_METHODS": "password,passkey,totp",
+
+    // Milliseconds.
     "SESSION_DURATION": "86400000",
     "SESSION_RENEWAL_THRESHOLD": "3600000",
     "MAX_SESSIONS_PER_USER": "5",
 
+    // SECONDS — not milliseconds. This sets the JWT `exp` claim and the
+    // cookie Max-Age directly. Pasting a millisecond value here (86400000)
+    // yields a ~2.7 YEAR session, not a day. 86400 = 24 hours.
+    "JWT_EXPIRY": "86400",
+
     // --- SECURITY ---
-    // NEVER put the real JWT_SECRET here. Set it with:
+    // JWT_SECRET is deliberately absent: it is a SECRET, not a var.
     //   bunx wrangler secret put JWT_SECRET
-    // This placeholder only exists so local dev boots.
+    // Putting it here commits it to git and leaks it to anyone with repo
+    // access. See docs/provisioning.md.
     "MAX_FAILED_LOGIN_ATTEMPTS": "5",
     "LOCKOUT_DURATION": "900000",
     "REQUIRE_EMAIL_VERIFICATION": "false",
     "REQUIRE_PHONE_VERIFICATION": "false",
     // Comma-separated allowlist. Empty means open registration.
+    // Set this for an invite-only or single-user site.
     "ALLOWED_EMAILS": "",
 
     // --- ROLES & PERMISSIONS ---
+    // CHANGE_ME — model your own resources here. Convention:
+    //   resource.action      → the action on rows the user owns
+    //   resource.action.any  → the action on anyone's rows
+    //   "*"                  → expands to all of PERMISSIONS_AVAILABLE
+    // Keep the resource names in sync with the `Resource` type in
+    // worker/services/access.service.ts.
     "ROLES_AVAILABLE": "user,admin",
     "ROLES_DEFAULT": "user",
+    // Roles that cannot be self-assigned at registration. Bootstrap the
+    // first admin with `bun run create-admin:remote`.
     "ROLES_RESTRICTED": "admin",
     "PERMISSIONS_AVAILABLE": "notes.read,notes.create,notes.update,notes.delete,notes.update.any,notes.delete.any",
-    // "role:perm,perm;role:perm" — "*" grants everything.
     "ROLES_INHERENT": "user:notes.read,notes.create,notes.update,notes.delete;admin:*",
 
     // --- PASSKEY / WEBAUTHN ---
-    // RP_ID must match the domain in "routes" above (no scheme, no port).
-    // ORIGIN must be the full origin users load the site from.
+    // CHANGE_ME — these MUST match the deployed domain or passkeys fail
+    // with no useful error. RP_ID is the bare hostname (no scheme, no
+    // port); ORIGIN is the full origin users load the site from.
     "RP_NAME": "Frug",
-    "RP_ID": "localhost",
-    "ORIGIN": "http://localhost:3000",
+    "RP_ID": "change-me.example.com",
+    "ORIGIN": "https://change-me.example.com",
 
     // --- PASSWORD CONFIG ---
     "PASSWORD_MIN_LENGTH": "8",
@@ -76,43 +174,126 @@
     "PIN_NUMBERS_ONLY": "true",
 
     // --- TOTP CONFIG ---
+    // TOTP_ISSUER is the name shown in the user's authenticator app.
     "TOTP_ISSUER": "Frug",
     "TOTP_ALGORITHM": "SHA1",
     "TOTP_DIGITS": "6",
     "TOTP_PERIOD": "30",
   },
 
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "app-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
-      "migrations_dir": "drizzle",
+  // ---------------------------------------------------------------------
+  // OPTIONAL STAGING: `wrangler deploy --env staging`.
+  //
+  // This deploys a SEPARATE worker script named `<name>-staging` with its
+  // own secrets — `wrangler secret put JWT_SECRET --env staging` is a
+  // distinct command from the production one.
+  //
+  // Environments inherit nothing, so everything below is repeated on
+  // purpose. Two rules worth holding to:
+  //
+  //   1. Give staging its OWN D1 database and KV namespace. Pointing it at
+  //      production ids means a staging migration or a stray delete runs
+  //      against live data.
+  //   2. RP_ID and ORIGIN must match the STAGING hostname. A passkey
+  //      registered on one origin will not work on the other.
+  //
+  // Delete this whole block if you do not want a staging environment.
+  // ---------------------------------------------------------------------
+  "env": {
+    "staging": {
+      "routes": [
+        {
+          "pattern": "dev.change-me.example.com",
+          "custom_domain": true,
+        },
+      ],
+
+      // CHANGE_ME — a SEPARATE database from production.
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "change-me-db-staging",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "drizzle",
+        },
+      ],
+
+      // CHANGE_ME — a SEPARATE namespace from production.
+      "kv_namespaces": [
+        {
+          "binding": "KV",
+          "id": "00000000000000000000000000000000",
+        },
+      ],
+
+      "r2_buckets": [
+        {
+          "binding": "R2",
+          "bucket_name": "change-me-files-staging",
+        },
+      ],
+
+      "ratelimits": [
+        {
+          "name": "RATE_LIMITER",
+          "namespace_id": "1001",
+          "simple": {
+            "limit": 20,
+            "period": 60,
+          },
+        },
+      ],
+
+      "observability": {
+        "enabled": true,
+      },
+
+      "vars": {
+        "ENVIRONMENT": "staging",
+
+        "APP_NAME": "Frug (staging)",
+        "APP_TAGLINE": "A Cloudflare Workers starter with batteries included.",
+        "APP_LOCALE": "en-AU",
+        "APP_CURRENCY": "AUD",
+
+        "AUTH_METHODS": "password,passkey,totp",
+        "SESSION_DURATION": "86400000",
+        "SESSION_RENEWAL_THRESHOLD": "3600000",
+        "MAX_SESSIONS_PER_USER": "5",
+        "JWT_EXPIRY": "86400",
+
+        "MAX_FAILED_LOGIN_ATTEMPTS": "5",
+        "LOCKOUT_DURATION": "900000",
+        "REQUIRE_EMAIL_VERIFICATION": "false",
+        "REQUIRE_PHONE_VERIFICATION": "false",
+        // Staging is usually worth locking to your own address.
+        "ALLOWED_EMAILS": "",
+
+        "ROLES_AVAILABLE": "user,admin",
+        "ROLES_DEFAULT": "user",
+        "ROLES_RESTRICTED": "admin",
+        "PERMISSIONS_AVAILABLE": "notes.read,notes.create,notes.update,notes.delete,notes.update.any,notes.delete.any",
+        "ROLES_INHERENT": "user:notes.read,notes.create,notes.update,notes.delete;admin:*",
+
+        // Must match the staging hostname above, not production.
+        "RP_NAME": "Frug (staging)",
+        "RP_ID": "dev.change-me.example.com",
+        "ORIGIN": "https://dev.change-me.example.com",
+
+        "PASSWORD_MIN_LENGTH": "8",
+        "PASSWORD_REQUIRE_UPPERCASE": "true",
+        "PASSWORD_REQUIRE_LOWERCASE": "true",
+        "PASSWORD_REQUIRE_NUMBERS": "true",
+        "PASSWORD_REQUIRE_SPECIAL": "true",
+
+        "PIN_LENGTH": "6",
+        "PIN_NUMBERS_ONLY": "true",
+
+        "TOTP_ISSUER": "Frug (staging)",
+        "TOTP_ALGORITHM": "SHA1",
+        "TOTP_DIGITS": "6",
+        "TOTP_PERIOD": "30",
+      },
     },
-  ],
-
-  "kv_namespaces": [
-    {
-      "binding": "KV",
-      "id": "00000000000000000000000000000000",
-    },
-  ],
-
-  // Optional. Delete this block (and R2Bucket in worker/types.ts) if the
-  // site does not store files.
-  "r2_buckets": [
-    {
-      "binding": "R2",
-      "bucket_name": "change-me",
-    },
-  ],
-
-  "observability": {
-    "enabled": true,
-  },
-
-  "dev": {
-    "port": 3000,
-    "local_protocol": "http",
   },
 }

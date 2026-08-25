@@ -32,7 +32,10 @@ bun dev                            # http://localhost:3000
 
 ## Starting a new site
 
-Everything site-specific is configuration. Work top to bottom:
+Everything site-specific is configuration. **[docs/provisioning.md](docs/provisioning.md)
+is the full walkthrough** — every binding, every secret, and the four ways to
+supply each (wrangler CLI, Cloudflare dashboard, GitHub secret, `.dev.vars`).
+The short version:
 
 ### 1. Create the Cloudflare resources
 
@@ -46,35 +49,50 @@ Each command prints an id. Keep them for the next step.
 
 ### 2. Fill in `wrangler.jsonc`
 
-Every value that must change is marked `CHANGE_ME` or `change-me`:
+Find everything still unset:
+
+```bash
+grep -in "change.me\|0000000" wrangler.jsonc
+```
 
 | Field                              | Set it to                                                                                                                        |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                             | The worker name, e.g. `my-site`                                                                                                  |
-| `routes`                           | Uncomment and set your custom domain, or delete to use `*.workers.dev`                                                           |
-| `vars.APP_NAME` / `APP_TAGLINE`    | How the site names itself in the nav, title and footer                                                                           |
-| `vars.APP_LOCALE` / `APP_CURRENCY` | Date and money formatting                                                                                                        |
-| `vars.RP_ID` / `vars.ORIGIN`       | **Must match your real domain** or passkeys silently fail. `RP_ID` is the bare hostname; `ORIGIN` is the full origin with scheme |
-| `vars.TOTP_ISSUER`                 | The name shown in authenticator apps                                                                                             |
+| `name`                             | The worker name, e.g. `my-site`. Renaming later orphans its secrets                                                              |
+| `routes`                           | Your custom domain, or delete the block to use `*.workers.dev`                                                                   |
 | `d1_databases[0]`                  | `database_name` and `database_id` from step 1                                                                                    |
 | `kv_namespaces[0].id`              | The KV id from step 1                                                                                                            |
 | `r2_buckets[0]`                    | Your bucket name, or delete the block and `R2` from `worker/types.ts`                                                            |
+| `vars.APP_NAME` / `APP_TAGLINE`    | How the site names itself in the nav, title and footer                                                                           |
+| `vars.APP_LOCALE` / `APP_CURRENCY` | Date and money formatting                                                                                                        |
+| `vars.RP_ID` / `vars.ORIGIN`       | **Must match your real domain** or passkeys silently fail. `RP_ID` is the bare hostname; `ORIGIN` is the full origin with scheme |
+| `vars.TOTP_ISSUER` / `RP_NAME`     | The name shown in authenticator apps and passkey prompts                                                                         |
 
-Then update `migrate:local` / `migrate:remote` in `package.json` to use your
-database name.
+The `migrate:*` scripts target the **`DB` binding**, not a database name, so
+they need no editing.
+
+**Production is the top level of the file; `env.staging` is a separate worker
+that inherits nothing.** Every binding and var is repeated there deliberately —
+give staging its own D1 and KV ids, or a staging migration runs against live
+data. Delete the `env` block if you do not want staging.
 
 ### 3. Set the secret
 
 `JWT_SECRET` signs session cookies. It must never live in `wrangler.jsonc`.
 
 ```bash
-openssl rand -base64 48                # generate
-bunx wrangler secret put JWT_SECRET    # production
-echo 'JWT_SECRET="<value>"' > .dev.vars  # local (git-ignored)
+openssl rand -base64 48                       # generate
+bunx wrangler secret put JWT_SECRET           # production
+bunx wrangler secret put JWT_SECRET --env staging   # separate worker, separate secret
+echo 'JWT_SECRET="<value>"' > .dev.vars       # local (git-ignored)
 ```
 
 Anyone with this value can mint a session for any user. Rotate it by setting a
 new one — every existing session is invalidated, which is the intended effect.
+
+Deploying from GitHub Actions needs `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` as repository secrets — but **not** `JWT_SECRET`, which
+already lives on the worker and survives deploys. See
+`.github/workflows/deploy.yml`.
 
 ### 4. Define roles and permissions
 
@@ -149,19 +167,19 @@ Then delete the notes files: `worker/schema/note.schema.ts`,
 
 ## Commands
 
-| Command                                  | Does                                             |
-| ---------------------------------------- | ------------------------------------------------ |
-| `bun dev`                                | Vite dev server with hot reload at `:3000`       |
-| `bun run preview`                        | Build, then run the real worker under Wrangler   |
-| `bun run build`                          | Typecheck, then build client and server bundles  |
-| `bun run typecheck`                      | `tsc -b`                                         |
-| `bun run lint`                           | ESLint                                           |
-| `bun run format:write`                   | Prettier                                         |
-| `bun run test`                           | Vitest                                           |
-| `bun run gen`                            | Regenerate Drizzle migrations and Wrangler types |
-| `bun run migrate:local` / `:remote`      | Apply D1 migrations                              |
-| `bun run create-admin:local` / `:remote` | Create or promote an admin user                  |
-| `bun run deploy:staging` / `:prod`       | Migrate, build and deploy                        |
+| Command                                          | Does                                             |
+| ------------------------------------------------ | ------------------------------------------------ |
+| `bun dev`                                        | Vite dev server with hot reload at `:3000`       |
+| `bun run preview`                                | Build, then run the real worker under Wrangler   |
+| `bun run build`                                  | Typecheck, then build client and server bundles  |
+| `bun run typecheck`                              | `tsc -b`                                         |
+| `bun run lint`                                   | ESLint                                           |
+| `bun run format:write`                           | Prettier                                         |
+| `bun run test`                                   | Vitest                                           |
+| `bun run gen`                                    | Regenerate Drizzle migrations and Wrangler types |
+| `bun run migrate:local` / `:remote` / `:staging` | Apply D1 migrations (targets the `DB` binding)   |
+| `bun run create-admin:local` / `:remote`         | Create or promote an admin user                  |
+| `bun run deploy:staging` / `:prod`               | Migrate, build and deploy                        |
 
 Run `bun run gen` after **any** change to `worker/schema/` or `wrangler.jsonc` —
 it regenerates both the SQL migration and `worker-configuration.d.ts`.
@@ -213,7 +231,10 @@ Path aliases: `@server/*` → `worker/*`, `@views/*` → `worker/views/*`,
 ## Security checklist before going live
 
 - [ ] `JWT_SECRET` set via `wrangler secret put`, not in `wrangler.jsonc`
+      (and separately for `--env staging`)
 - [ ] `RP_ID` and `ORIGIN` match the production domain exactly
+- [ ] `JWT_EXPIRY` is in **seconds** (`86400` = 24h), not milliseconds
+- [ ] Staging uses **separate** D1 and KV ids from production
 - [ ] `ALLOWED_EMAILS` set if registration should be invite-only
 - [ ] `ROLES_RESTRICTED` includes every privileged role
 - [ ] The first admin created via `create-admin`, not self-registration

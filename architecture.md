@@ -6,16 +6,17 @@ there is no separate frontend build to deploy, no API gateway, no origin server.
 
 ## 1. Stack
 
-| Layer             | Choice                                                                      | Why                                                        |
-| ----------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Framework         | [Hono](https://hono.dev/)                                                   | Small, fast, first-class Workers support, JSX built in     |
-| Runtime           | [Cloudflare Workers](https://workers.cloudflare.com/)                       | Runs at the edge, no servers to operate                    |
-| Database          | [D1](https://developers.cloudflare.com/d1/)                                 | SQLite at the edge, same binding locally and in production |
-| ORM               | [Drizzle](https://orm.drizzle.team/)                                        | Typed queries, migrations generated from the schema        |
-| Cache / ephemeral | [KV](https://developers.cloudflare.com/kv/)                                 | WebAuthn challenges, short-lived state                     |
-| Validation        | [Zod](https://zod.dev/)                                                     | Derived from Drizzle tables via `drizzle-zod`              |
-| UI                | Hono JSX + [HTMX](https://htmx.org/) + [Tailwind](https://tailwindcss.com/) | Server-rendered by default; HTMX swaps fragments           |
-| Islands           | [Lit](https://lit.dev/)                                                     | Only where client state is unavoidable                     |
+| Layer             | Choice                                                                                       | Why                                                        |
+| ----------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Framework         | [Hono](https://hono.dev/)                                                                    | Small, fast, first-class Workers support, JSX built in     |
+| Runtime           | [Cloudflare Workers](https://workers.cloudflare.com/)                                        | Runs at the edge, no servers to operate                    |
+| Database          | [D1](https://developers.cloudflare.com/d1/)                                                  | SQLite at the edge, same binding locally and in production |
+| ORM               | [Drizzle](https://orm.drizzle.team/)                                                         | Typed queries, migrations generated from the schema        |
+| Cache / ephemeral | [KV](https://developers.cloudflare.com/kv/)                                                  | WebAuthn challenges, short-lived state                     |
+| Throttling        | [Rate limiting](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) | Per-IP cap on the auth API, before any DB work             |
+| Validation        | [Zod](https://zod.dev/)                                                                      | Derived from Drizzle tables via `drizzle-zod`              |
+| UI                | Hono JSX + [HTMX](https://htmx.org/) + [Tailwind](https://tailwindcss.com/)                  | Server-rendered by default; HTMX swaps fragments           |
+| Islands           | [Lit](https://lit.dev/)                                                                      | Only where client state is unavoidable                     |
 
 ---
 
@@ -197,3 +198,7 @@ Two Vite passes from one config:
 - **Data isolation** is enforced in the query, not only in the check.
 - **CORS** is same-origin by default.
 - **`/dev`** requires the `admin` role because it dumps every table.
+- **Two layers of brute-force defence.** The `RATE_LIMITER` binding caps auth
+  requests per IP at the edge; `MAX_FAILED_LOGIN_ATTEMPTS` locks the individual
+  account. The second matters more — an attacker can rotate IPs but not the
+  account they are targeting.
