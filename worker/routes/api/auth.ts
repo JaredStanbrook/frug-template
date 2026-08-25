@@ -160,7 +160,7 @@ export const apiAuth = new Hono<AppEnv>()
   // binding in wrangler.jsonc. This is a cheap edge-level backstop that runs
   // before any database work; the per-account lockout in AuthService is the
   // real defence, since an attacker can rotate IPs but not the target account.
-  // Skipped when the binding is absent so `bun dev` and tests still work.
+  // Skipped when the binding is absent so `npm run dev` and tests still work.
   .use("*", async (c, next) => {
     const limiter = c.env.RATE_LIMITER;
     if (!limiter) return next();

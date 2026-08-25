@@ -18,12 +18,15 @@ please keep contributions generic rather than encoding one site's domain.
    cd frug-template
    ```
 
-2. **Install Dependencies**  
-   Make sure you have [Bun](https://bun.sh/) installed, then run:
+2. **Install Dependencies**
 
    ```bash
-   bun install
+   npm install
    ```
+
+   Bun works too (`bun install`) — every script is runtime-agnostic. The
+   committed lockfile is `package-lock.json`, because npm is what Cloudflare's
+   build image detects most reliably.
 
 3. **Set Up Local Secrets**
    Copy the example file and set a `JWT_SECRET`:
@@ -34,25 +37,28 @@ please keep contributions generic rather than encoding one site's domain.
    ```
 
 4. **Configure Cloudflare Resources** (only to deploy your own instance)
-   Edit `wrangler.jsonc` and replace every `CHANGE_ME` / `change-me`
-   placeholder with your own D1, KV and R2 identifiers. See the
-   "Starting a new site" section of the README.
+
+   ```bash
+   npm run configure -- --help
+   ```
+
+   Fills in `wrangler.jsonc` from your own D1 and KV ids. See `docs/deploy.md`.
 
 5. **Generate Schemas and Wrangler Types**
 
    ```bash
-   bun run gen
+   npm run gen
    ```
 
 6. **Run Database Migrations (Optional for DB changes)**
 
    ```bash
-   bun run migrate:local
+   npm run migrate:local
    ```
 
 7. **Start the Development Servers**
    ```bash
-   bun dev
+   npm run dev
    ```
    This serves the worker with hot reload at http://localhost:3000.
 
@@ -72,14 +78,14 @@ please keep contributions generic rather than encoding one site's domain.
      and `endpoints.md` for the route/service/view patterns.
    - If you add a page or API route, follow the existing folder structure.
    - Add the new path to `tests/ui-pages.test.ts`.
-   - Run `bun run gen` after changing `worker/schema/` or `wrangler.jsonc`.
+   - Run `npm run gen` after changing `worker/schema/` or `wrangler.jsonc`.
 
 3. **Run Lint and Tests**
 
    ```bash
-   bun run lint
-   bun run typecheck
-   bun run test
+   npm run lint
+   npm run build
+   npm run test
    ```
 
 4. **Commit Your Changes**  
@@ -150,7 +156,7 @@ To keep your feature branch up to date with the latest changes from `main`:
 ## 🧹 Code Style
 
 - Use the provided ESLint and Prettier configs.
-- Run `bun run lint` before pushing.
+- Run `npm run lint` before pushing.
 - Use TypeScript for all code.
 
 ---

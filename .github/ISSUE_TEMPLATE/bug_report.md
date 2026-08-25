@@ -24,5 +24,5 @@ assignees: ""
 
 - OS:
 - Browser:
-- Node/Bun version:
+- Node version:
 - Deployment target (local/staging/prod):

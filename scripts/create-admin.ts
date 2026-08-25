@@ -8,8 +8,8 @@ const usage = () => {
   console.log(
     [
       "Usage:",
-      "  bun run create-admin --email you@domain.com --password 'Secret123!' --local",
-      "  bun run create-admin --email you@domain.com --password 'Secret123!' --remote",
+      "  npm run create-admin:local -- --email you@domain.com --password 'Secret123!'",
+      "  npm run create-admin:remote -- --email you@domain.com --password 'Secret123!'",
       "",
       "Options:",
       "  --email           Email address for the admin user (required)",

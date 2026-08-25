@@ -5,110 +5,108 @@ This project follows Semantic Versioning.
 
 ## [Unreleased]
 
-### Deployment model
+First release. The template is the platform layer of a production Cloudflare
+Workers application, with that application's domain removed, designed so a new
+site goes from template to live without a terminal.
 
-The repo is now designed to go from template to live site **without a
-terminal**: Claude prepares the repo, and Cloudflare's Git integration builds,
-migrates and deploys on every push. See `docs/deploy.md`.
+### The template
+
+- Hono on Cloudflare Workers: server-rendered JSX, HTMX for partial updates,
+  Tailwind v4, Lit Web Components only where client state is unavoidable.
+- Multi-method authentication — password, PIN, TOTP, passkey/WebAuthn — with
+  failed-attempt lockout, session limits and an `auth_logs` audit trail. Which
+  methods a site offers is one variable.
+- Role-based access control: roles, role-inherited permissions and per-user
+  grants with expiry, all declared in `wrangler.jsonc`. `requireUser`,
+  `requireRole` and `requirePermission` guards, plus an `AccessControl` service
+  for per-row ownership checks.
+- Cloudflare D1 with Drizzle ORM and Zod validators derived from the same table
+  definitions, so a schema change propagates to validation and types.
+- `worker/config/app.config.ts` — per-site branding, locale and currency are
+  configuration, not code edits.
+- A `notes` example feature: one complete vertical slice (schema, validation,
+  guarded routes, ownership checks, HTMX fragments, soft deletes) to copy the
+  shape of and then delete.
+- Admin-gated `/dev` database inspector and `/admin/logs` audit view.
+- `RATE_LIMITER` binding, wired into the auth API as a per-IP throttle ahead of
+  any database work. Skipped when the binding is absent, so local dev and tests
+  are unaffected.
+- Vitest smoke tests covering every route, signed out and signed in.
+- Vite build for client and worker bundles, ESLint, Prettier, GitHub Actions CI.
+
+### Deploying without a terminal
+
+The whole dev-to-prod cycle completes from a phone: Claude prepares the repo,
+and Cloudflare's Git integration builds, migrates and deploys on every push.
+Three dashboard steps are the only manual work. See `docs/deploy.md`.
 
 - `npm run deploy` — `wrangler d1 migrations apply DB --remote && wrangler
-deploy`. This is the Deploy command to paste into the dashboard; the default
+deploy`. This is the Deploy command pasted into the dashboard; the default
   `npx wrangler deploy` would ship code against an un-migrated schema.
-- `npm run build` runs `wrangler types` first, so the build works in a
-  container that starts without the generated (git-ignored)
+- `npm run build` runs `wrangler types` first, so the build succeeds in a
+  container that starts without the generated, git-ignored
   `worker-configuration.d.ts`.
 - `BOOTSTRAP_ADMIN_EMAIL` — registering with this exact address grants `admin`,
   but only while no admin exists, so it disarms itself permanently on first
-  use. Replaces `create-admin` as the first-admin path, since that needed a
-  CLI. Explicit `"role": "admin"` at registration is still rejected.
-- `scripts/configure.ts` (`npm run configure`) rewrites every placeholder in
+  use. This is the first-admin path, because `create-admin` needs a CLI.
+  Explicit `"role": "admin"` at registration is still rejected.
+- `npm run configure` (`scripts/configure.ts`) rewrites every placeholder in
   `wrangler.jsonc` from a few flags, validates the ids, and reports whatever is
   still unset. Intended to be run by Claude from values pasted into chat.
-- `docs/deploy.md` replaces `docs/provisioning.md`, written around the
-  dashboard rather than the CLI, with a build-failure table, a no-CLI manual
-  migration fallback, and rollback notes.
-- All `package.json` scripts are runtime-agnostic — no `bunx`/`bun run` — so
-  Cloudflare's build image runs them whichever package manager it selects.
-- npm is now the canonical package manager (`package-lock.json` committed,
-  `bun.lock` removed) because it is what the build image detects most
-  reliably. Bun still works locally.
-- `.node-version` is `24.18.0`, a version preinstalled in the build image; it
-  was `20.11.1`, which is not.
-- CI and release workflows moved to Node/npm. The GitHub deploy workflow was
-  removed — Cloudflare deploys now, and two deploy paths racing each other is
-  worse than one.
-- The `env.staging` block was removed. The dashboard flow is one Worker, one
-  connected repo, one deploy command; `docs/deploy.md` has an appendix on
-  adding staging back, including that named environments inherit nothing.
+- `docs/deploy.md` is the dashboard-first walkthrough, with a build-failure
+  table, a no-CLI manual migration fallback via the D1 console, rollback notes,
+  and an appendix on adding a staging environment.
+- `wrangler.jsonc` ships production-only with placeholders and inline notes on
+  where each value comes from. No staging block: the dashboard flow is one
+  Worker, one connected repo, one deploy command.
+- `ENVIRONMENT` var, so code can distinguish deployments.
 
-### Dependencies
+### Build environment
 
-- `@hono/zod-validator` 0.5 → 0.9. 0.5 declares a peer dependency on zod 3
-  while this project uses zod 4; Bun tolerated it, npm refuses to install,
-  which would have broken the Cloudflare build outright.
-- `drizzle-orm` 0.43 → 0.45.2, clearing a high-severity advisory. Verified the
-  generated migration SQL is byte-identical.
-- Dropped `bun-types`; added `tsx` to run the repo's scripts under Node.
+Every item here would have broken the Cloudflare build:
+
+- `@hono/zod-validator` 0.5 → 0.9. 0.5 peer-depends on zod 3 while this project
+  uses zod 4; Bun tolerated the conflict, npm refuses to install at all.
+- All `package.json` scripts are runtime-agnostic — no `bunx`/`bun run` — so the
+  build image runs them whichever package manager it selects.
+- npm is the canonical package manager (`package-lock.json` committed) because
+  it is what the build image detects most reliably. Bun still works locally.
+- `.node-version` is `24.18.0`, preinstalled in the build image. `20.11.1` is
+  not.
+- Dropped `bun-types`; added `tsx` so the repo's scripts run under Node.
   `scripts/create-admin.ts` no longer uses Bun-only APIs.
 
-### Added
+### Fixed, carried over from the source application
 
-- Initial template extracted from a production Cloudflare Workers application.
-- Multi-method authentication: password, PIN, TOTP and passkey/WebAuthn, with
-  account lockout, session limits and an `auth_logs` audit trail.
-- Role-based access control: roles, role-inherited permissions and per-user
-  grants with expiry, all declared through Cloudflare vars.
-- `worker/config/app.config.ts` so per-site branding, locale and currency are
-  configuration rather than code edits.
-- `notes` example feature — a complete vertical slice (schema, validation,
-  guarded routes, ownership checks, HTMX fragments, soft deletes) to copy and
-  then delete.
-- Admin-gated `/dev` database inspector and `/admin/logs` audit view.
-- Vitest smoke tests covering every route, signed out and signed in.
-- `.dev.vars.example` for local secrets.
-- `docs/provisioning.md` — every binding and secret, with the four ways to
-  supply each: wrangler CLI, Cloudflare dashboard, GitHub Actions secret, or
-  `.dev.vars`. Includes a per-site checklist and the binding-vs-var-vs-secret
-  distinction.
-- `wrangler.jsonc` now mirrors a real production layout: production at the top
-  level, an optional `env.staging` block, and inline notes on which values are
-  per-site and how to obtain them.
-- `RATE_LIMITER` binding, wired into the auth API as a per-IP throttle that
-  runs before any database work. Skipped when the binding is absent so local
-  dev and tests are unaffected.
-- `.github/workflows/deploy.yml` — manual (or push-triggered) deploy using
-  `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`, migrating before deploying.
-- `ENVIRONMENT` var, so code can tell production from staging.
-- `bun run migrate:staging`.
-
-### Changed
-
-- Auth service now routes every user object through `toSafeUser()`, which
-  strips `passwordHash`, `pin` and `totpSecret` and hydrates roles and
-  permissions. Login responses previously returned the raw database row.
-- `RoleService.getUserPermissions()` expands a `*` grant to every permission in
-  `PERMISSIONS_AVAILABLE`, so `requirePermission` works for wildcard roles.
-- JWT signing and verification share an explicit `HS256` constant, required by
-  current Hono versions.
-- `/dev` requires the `admin` role; it was previously unauthenticated.
-- Currency and date formatting take locale and currency from `APP_LOCALE` and
-  `APP_CURRENCY` instead of hard-coded values.
-- `deploy:staging` ran `migrate:remote`, which targets **production** — a
-  staging deploy would migrate the live database. It now runs `migrate:staging`.
-- The `migrate:*` scripts and `create-admin` target the `DB` **binding** rather
-  than a hard-coded database name, so they need no editing per site.
+- Login responses returned the raw `users` row, exposing `passwordHash`. Every
+  user object now exits the auth service through `toSafeUser()`, which strips
+  `passwordHash`, `pin` and `totpSecret` and hydrates roles and permissions.
+- The CSRF origin check was pinned to a hardcoded personal domain, via a regex
+  whose alternation did not bind as intended. It now compares exactly against
+  `ORIGIN` plus localhost.
+- `/dev` dumped every table without authentication. It now requires `admin`.
+- A `*` permission grant was stored literally, so `requirePermission` failed for
+  wildcard roles. It now expands to `PERMISSIONS_AVAILABLE`.
+- `verify` needs an explicit algorithm on current Hono versions; signing and
+  verification now share one `HS256` constant.
+- `deploy:staging` ran `migrate:remote`, which targets production — a staging
+  deploy would have migrated the live database.
+- `assets.not_found_handling` was `single-page-application`. This app
+  server-renders every route, so the SPA fallback swallowed 404s that should
+  reach the worker's own handler. Now `none`.
 - `JWT_EXPIRY` is documented as **seconds** at every mention. It sets the JWT
-  `exp` claim and the cookie `Max-Age` directly, so a pasted millisecond value
-  (`86400000`) yields a ~2.7 year session instead of a day.
-- `assets.not_found_handling` is `none` rather than `single-page-application`.
-  This app server-renders every route, so the SPA fallback was swallowing 404s
-  that should reach the worker's own handler.
+  `exp` claim and the cookie `Max-Age` directly, so a millisecond value
+  (`86400000`) yields a ~2.7 year session rather than a day.
+- `drizzle-orm` 0.43 → 0.45.2, clearing a high-severity advisory. The generated
+  migration SQL is byte-identical.
+- CI ran `bun test` — Bun's own runner, not the vitest script — and lacked the
+  step generating the types its typecheck depends on.
 
-### Removed
+### Removed from the source application
 
-- The originating application's domain: properties, rooms, tenancies,
-  invoices, expenses, bonds, rent, billing and PDF generation.
+- Its domain: properties, rooms, tenancies, invoices, expenses, bonds, rent,
+  billing and PDF generation.
 - The legacy `wrangler.toml`, which duplicated and contradicted
   `wrangler.jsonc`.
-- Committed secrets and live resource identifiers; `wrangler.jsonc` now ships
+- Committed secrets and live resource identifiers. `wrangler.jsonc` ships
   placeholders only.

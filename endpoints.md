@@ -155,7 +155,8 @@ fact — an unauthorized row should never be loaded:
 
 1. **Schema** — `worker/schema/<feature>.schema.ts`: Drizzle table (spread
    `ownershipColumns`), Zod schemas, inferred types.
-2. **Migrate** — `bun run gen`, then `bun run migrate:local`.
+2. **Migrate** — `npm run gen`. Cloudflare applies it on the next deploy;
+   `npm run migrate:local` applies it locally.
 3. **Views** — `worker/views/<feature>/`: pure functions of props, stable `id`
    on every swappable fragment.
 4. **Service** — only if the logic warrants it.

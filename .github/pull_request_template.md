@@ -6,9 +6,9 @@
 
 ## Testing
 
-- [ ] `bun run lint`
-- [ ] `bun run typecheck`
-- [ ] `bun test`
+- [ ] `npm run lint`
+- [ ] `npm run build` (generates types, typechecks, builds both bundles)
+- [ ] `npm run test`
 
 ## Screenshots (if UI changes)
 

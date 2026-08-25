@@ -247,9 +247,12 @@ Two things to know:
    KV ids. Pointing staging at production ids means a staging migration runs
    against live data.
 
-Then connect a second Worker in the dashboard to the same repo with deploy
-command `npm run deploy:staging`, and add that script:
+Then add a `deploy:staging` script to `package.json` (it does not ship in the
+template):
 
+```json
+"deploy:staging": "wrangler d1 migrations apply DB --remote --env staging && wrangler deploy --env staging"
 ```
-wrangler d1 migrations apply DB --remote --env staging && wrangler deploy --env staging
-```
+
+and connect a second Worker in the dashboard to the same repo, with Deploy
+command `npm run deploy:staging`.

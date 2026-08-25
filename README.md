@@ -21,6 +21,7 @@ The full walkthrough is **[docs/deploy.md](docs/deploy.md)**.
 | **Data**    | Cloudflare D1 with Drizzle ORM. Zod validators derived from the same table definitions, so a schema change propagates to validation and types.                                        |
 | **UI**      | Hono JSX server rendering, HTMX for partial updates, Tailwind v4, light/dark/system theming, toasts, dialogs. Lit Web Components only where client state is unavoidable.              |
 | **Tooling** | Vite build for client and worker bundles, TypeScript project references, ESLint, Prettier, Vitest smoke tests, GitHub Actions CI.                                                     |
+| **Deploy**  | Cloudflare's Git integration builds, migrates and deploys on every push. `BOOTSTRAP_ADMIN_EMAIL` makes the first admin without a terminal. No CLI in the loop.                        |
 
 ---
 

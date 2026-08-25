@@ -182,8 +182,15 @@ Two Vite passes from one config:
   copied alongside. Served by the `ASSETS` binding.
 - default mode → the worker bundle, entry `worker/index.ts`.
 
-`bun run build` typechecks first, so a broken build never reaches Wrangler.
-`bun run deploy:prod` runs migrations, builds, and deploys in that order.
+`npm run build` generates `worker-configuration.d.ts` and typechecks before
+bundling, so a broken build never reaches Wrangler — and so the build works in
+a container that starts without the generated file, which is git-ignored.
+
+Deployment is Cloudflare's Git integration rather than a command anyone runs:
+on every push it runs the **Build command** (`npm run build`) and then the
+**Deploy command** (`npm run deploy`), which is
+`wrangler d1 migrations apply DB --remote && wrangler deploy` — the schema
+migrates immediately before the new code goes live. See `docs/deploy.md`.
 
 ---
 
