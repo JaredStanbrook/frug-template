@@ -1,0 +1,30 @@
+# Copy to `.dev.vars` (git-ignored) for local development.
+#
+# Anything here overrides the matching key in wrangler.jsonc "vars".
+# Only secrets and local-only overrides belong in this file — everything
+# else lives in wrangler.jsonc so it is version-controlled.
+#
+# In production, set secrets with:
+#   bunx wrangler secret put JWT_SECRET
+
+# Signs the auth_token JWT. Generate one with:
+#   openssl rand -base64 48
+JWT_SECRET="replace-with-a-long-random-string"
+
+# --- Local-only auth overrides ---------------------------------------
+# WebAuthn requires RP_ID to match the hostname exactly, and ORIGIN to
+# match the full origin including port. `bun dev` serves on :3000.
+RP_ID="localhost"
+ORIGIN="http://localhost:3000"
+
+# Loosen registration while developing.
+ALLOWED_EMAILS=""
+REQUIRE_EMAIL_VERIFICATION="false"
+
+# --- Optional providers ----------------------------------------------
+# Only needed if AUTH_METHODS includes "email" or "sms".
+# SMTP_HOST="smtp.example.com"
+# SMTP_PORT="587"
+# SMTP_USER=""
+# SMTP_PASS=""
+# SMS_PROVIDER_API_KEY=""

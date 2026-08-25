@@ -1,0 +1,118 @@
+{
+  // =====================================================================
+  // TEMPLATE CONFIG — rename everything marked CHANGE_ME before deploying.
+  // See README.md "Starting a new site" for the full checklist.
+  // =====================================================================
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "frug-app",
+  "compatibility_date": "2025-01-01",
+  "main": "worker/index.ts",
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "single-page-application",
+  },
+
+  // Attach a custom domain once the zone exists in your Cloudflare account.
+  // Until then, `wrangler deploy` publishes to <name>.<subdomain>.workers.dev.
+  // "routes": [
+  // 	{
+  // 		"pattern": "CHANGE_ME.example.com",
+  // 		"zone_name": "example.com",
+  // 		"custom_domain": true
+  // 	}
+  // ],
+
+  "vars": {
+    // --- BRANDING ---
+    "APP_NAME": "Frug",
+    "APP_TAGLINE": "A Cloudflare Workers starter with batteries included.",
+    "APP_LOCALE": "en-AU",
+    "APP_CURRENCY": "AUD",
+
+    // --- CORE AUTH ---
+    // Enabled methods: passkey, password, pin, totp, email, sms
+    "AUTH_METHODS": "password,passkey,totp",
+    "SESSION_DURATION": "86400000",
+    "SESSION_RENEWAL_THRESHOLD": "3600000",
+    "MAX_SESSIONS_PER_USER": "5",
+
+    // --- SECURITY ---
+    // NEVER put the real JWT_SECRET here. Set it with:
+    //   bunx wrangler secret put JWT_SECRET
+    // This placeholder only exists so local dev boots.
+    "MAX_FAILED_LOGIN_ATTEMPTS": "5",
+    "LOCKOUT_DURATION": "900000",
+    "REQUIRE_EMAIL_VERIFICATION": "false",
+    "REQUIRE_PHONE_VERIFICATION": "false",
+    // Comma-separated allowlist. Empty means open registration.
+    "ALLOWED_EMAILS": "",
+
+    // --- ROLES & PERMISSIONS ---
+    "ROLES_AVAILABLE": "user,admin",
+    "ROLES_DEFAULT": "user",
+    "ROLES_RESTRICTED": "admin",
+    "PERMISSIONS_AVAILABLE": "notes.read,notes.create,notes.update,notes.delete,notes.update.any,notes.delete.any",
+    // "role:perm,perm;role:perm" — "*" grants everything.
+    "ROLES_INHERENT": "user:notes.read,notes.create,notes.update,notes.delete;admin:*",
+
+    // --- PASSKEY / WEBAUTHN ---
+    // RP_ID must match the domain in "routes" above (no scheme, no port).
+    // ORIGIN must be the full origin users load the site from.
+    "RP_NAME": "Frug",
+    "RP_ID": "localhost",
+    "ORIGIN": "http://localhost:3000",
+
+    // --- PASSWORD CONFIG ---
+    "PASSWORD_MIN_LENGTH": "8",
+    "PASSWORD_REQUIRE_UPPERCASE": "true",
+    "PASSWORD_REQUIRE_LOWERCASE": "true",
+    "PASSWORD_REQUIRE_NUMBERS": "true",
+    "PASSWORD_REQUIRE_SPECIAL": "true",
+
+    // --- PIN CONFIG ---
+    "PIN_LENGTH": "6",
+    "PIN_NUMBERS_ONLY": "true",
+
+    // --- TOTP CONFIG ---
+    "TOTP_ISSUER": "Frug",
+    "TOTP_ALGORITHM": "SHA1",
+    "TOTP_DIGITS": "6",
+    "TOTP_PERIOD": "30",
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "app-db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "drizzle",
+    },
+  ],
+
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "00000000000000000000000000000000",
+    },
+  ],
+
+  // Optional. Delete this block (and R2Bucket in worker/types.ts) if the
+  // site does not store files.
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "change-me",
+    },
+  ],
+
+  "observability": {
+    "enabled": true,
+  },
+
+  "dev": {
+    "port": 3000,
+    "local_protocol": "http",
+  },
+}
