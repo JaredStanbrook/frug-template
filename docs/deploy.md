@@ -190,14 +190,15 @@ seconds. Nothing can validate a plausible-looking number, so check it by hand.
 
 Read the build log in **Settings → Builds** first; it names the failing step.
 
-| Symptom                                               | Cause                                                                                                                                                                             |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `JWT_SECRET` undefined at runtime, 500s on every page | Secret not set, or set as a Build variable instead of a Secret                                                                                                                    |
-| Migration step fails with an auth error               | Rare — the build has your account's credentials. Fall back to the manual migration below                                                                                          |
-| `database_id` invalid                                 | The id in `wrangler.jsonc` does not match the dashboard                                                                                                                           |
-| Passkey registration fails, everything else works     | `RP_ID` / `ORIGIN` mismatch (Step 6)                                                                                                                                              |
-| Build cannot find `worker-configuration.d.ts`         | Should not happen — `npm run build` regenerates it via `wrangler types`                                                                                                           |
-| `npm ci` fails with `Missing: <pkg> from lock file`   | `package-lock.json` was regenerated with a plain `npm install`, which drops optional binaries for other platforms. Ask Claude to rerun `npm install --package-lock-only` and push |
+| Symptom                                                                  | Cause                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET` undefined at runtime, 500s on every page                    | Secret not set, or set as a Build variable instead of a Secret                                                                                                                                        |
+| Migration step fails with an auth error                                  | Rare — the build has your account's credentials. Fall back to the manual migration below                                                                                                              |
+| `database_id` invalid                                                    | The id in `wrangler.jsonc` does not match the dashboard                                                                                                                                               |
+| Passkey registration fails, everything else works                        | `RP_ID` / `ORIGIN` mismatch (Step 6)                                                                                                                                                                  |
+| Build cannot find `worker-configuration.d.ts`                            | Should not happen — `npm run build` regenerates it via `wrangler types`                                                                                                                               |
+| `npm ci` fails with `Missing: <pkg> from lock file`                      | `package-lock.json` was regenerated with a plain `npm install`, which drops optional binaries for other platforms. Ask Claude to rerun `npm install --package-lock-only` and push                     |
+| Pages load but sign-up fails with "The database has not been set up yet" | The migrate step never ran. Check the Deploy command is `npm run deploy`, not the default `npx wrangler deploy`, then redeploy. Or apply the schema by hand — see the manual migration fallback below |
 
 **Manual migration fallback.** If the migrate step ever fails, you can apply
 the schema by hand with no CLI: open **D1 → your database → Console**, paste

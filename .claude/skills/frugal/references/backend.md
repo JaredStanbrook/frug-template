@@ -71,6 +71,11 @@ wrong.
 Deploy command applies them immediately before the new code goes live, so a
 schema change ships with the code that needs it.
 
+A site whose public pages work but whose first database query fails has
+almost always never been migrated — the public pages never touch D1, so
+registration is the first thing to hit it. `worker/lib/errors.ts` detects that
+case and says so rather than returning the raw driver error.
+
 D1 migrations are forward-only. A destructive change needs a forward fix, not
 a rollback. SQLite cannot drop or retype a column in place, so a rename is
 usually: add the new column, backfill, then stop referencing the old one.
@@ -238,6 +243,25 @@ Units: `SESSION_DURATION` and `LOCKOUT_DURATION` are **milliseconds**;
 
 `validateAuthConfig()` catches structural mistakes — a default role missing
 from `ROLES_AVAILABLE`, TOTP enabled with no issuer.
+
+## Errors
+
+Route handlers should not return a caught error's `message` to the client.
+Drizzle wraps a D1 failure as `Failed query: <the whole SQL>` with the real
+reason on `.cause`, so returning it verbatim hands out the schema and tells
+the caller nothing — while the operator gets nothing in the logs either.
+
+`worker/lib/errors.ts` handles both halves:
+
+```ts
+return c.json({ error: logAndSanitise("auth.register", error) }, 400);
+```
+
+It logs the flattened cause chain and returns either the deliberate message
+(a plain `new Error("Email already registered")` from a service) or a generic
+one for anything carrying a `cause` or SQL. The classification errs towards
+generic, so the worst case is a vaguer message rather than a leak. Logs appear
+in `wrangler tail` and in the dashboard under Workers Logs.
 
 ## Testing
 

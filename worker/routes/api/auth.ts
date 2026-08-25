@@ -17,6 +17,7 @@ import {
   verifyTotpSchema,
 } from "../../schema/auth.schema";
 import type { AppEnv } from "../../types";
+import { logAndSanitise } from "@server/lib/errors";
 
 // --- Routes ---
 export const passkey = new Hono<AppEnv>()
@@ -40,7 +41,16 @@ export const passkey = new Hono<AppEnv>()
       // Return options directly, challengeId is included in result
       return c.json({ ...result.options, challengeId: result.challengeId });
     } catch (e: any) {
-      return c.json({ error: e.message || "Registration initialization failed" }, 400);
+      return c.json(
+        {
+          error: logAndSanitise(
+            "passkey.register.options",
+            e,
+            "Registration initialization failed",
+          ),
+        },
+        400,
+      );
     }
   })
 
@@ -58,8 +68,10 @@ export const passkey = new Hono<AppEnv>()
 
       return c.json({ user, requiresVerification, verified });
     } catch (e: any) {
-      console.error("Register Verify Error:", e);
-      return c.json({ error: e.message || "Registration verification failed" }, 400);
+      return c.json(
+        { error: logAndSanitise("passkey.register.verify", e, "Registration verification failed") },
+        400,
+      );
     }
   })
 
@@ -73,7 +85,10 @@ export const passkey = new Hono<AppEnv>()
 
       return c.json({ ...result.options, challengeId: result.challengeId });
     } catch (e: any) {
-      return c.json({ error: e.message || "Login initialization failed" }, 400);
+      return c.json(
+        { error: logAndSanitise("passkey.login.options", e, "Login initialization failed") },
+        400,
+      );
     }
   })
 
@@ -90,8 +105,10 @@ export const passkey = new Hono<AppEnv>()
 
       return c.json(user);
     } catch (e: any) {
-      console.error("Login Verify Error:", e);
-      return c.json({ error: e.message || "Login verification failed" }, 400);
+      return c.json(
+        { error: logAndSanitise("passkey.login.verify", e, "Login verification failed") },
+        400,
+      );
     }
   });
 
@@ -112,7 +129,7 @@ export const totp = new Hono<AppEnv>()
       const result = await auth.setupTotp();
       return c.json(result);
     } catch (error: any) {
-      return c.json({ error: error.message }, 400);
+      return c.json({ error: logAndSanitise("totp.setup", error) }, 400);
     }
   })
   .post("/enable", zValidator("json", verifyTotpSchema), async (c) => {
@@ -122,7 +139,7 @@ export const totp = new Hono<AppEnv>()
       await auth.verifyAndEnableTotp(secret, code);
       return c.json({ message: "TOTP enabled successfully" });
     } catch (error: any) {
-      return c.json({ error: error.message }, 400);
+      return c.json({ error: logAndSanitise("totp.enable", error) }, 400);
     }
   })
 
@@ -133,7 +150,7 @@ export const totp = new Hono<AppEnv>()
       await auth.disableTotp();
       return c.json({ message: "TOTP disabled successfully" });
     } catch (error: any) {
-      return c.json({ error: error.message }, 400);
+      return c.json({ error: logAndSanitise("totp.disable", error) }, 400);
     }
   });
 
@@ -201,7 +218,7 @@ export const apiAuth = new Hono<AppEnv>()
       await auth.createSession({ id: result.user.id, roles: result.user.roles });
       return c.json(result, 201);
     } catch (error: any) {
-      return c.json({ error: error.message }, 400);
+      return c.json({ error: logAndSanitise("auth.register", error) }, 400);
     }
   })
 
@@ -230,7 +247,7 @@ export const apiAuth = new Hono<AppEnv>()
       if (error.message === "TOTP_REQUIRED") {
         return c.json({ requireTotp: true }, 403);
       }
-      return c.json({ error: error.message }, 401);
+      return c.json({ error: logAndSanitise("auth.login", error, "Invalid credentials") }, 401);
     }
   })
   .get("/me", (c) => {
@@ -323,6 +340,6 @@ export const apiAuth = new Hono<AppEnv>()
       const logs = await auth.getAuthLogs(query);
       return c.json({ logs });
     } catch (error: any) {
-      return c.json({ error: error.message }, 400);
+      return c.json({ error: logAndSanitise("auth.profile", error) }, 400);
     }
   });

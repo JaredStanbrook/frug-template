@@ -10,6 +10,7 @@ import routes from "./app";
 import { configMiddleware } from "./middleware/config.middleware";
 import { dbMiddleware } from "./middleware/db.middleware";
 import { authMiddleware } from "./middleware/auth.middleware";
+import { describeError, isMissingSchema } from "./lib/errors";
 
 const worker = new Hono<AppEnv>();
 
@@ -53,7 +54,19 @@ worker.onError((err, c) => {
   if (err instanceof HTTPException) {
     return c.json({ error: err.message }, err.status);
   }
-  console.error(err);
+
+  // Flatten the cause chain: a Drizzle failure carries the useful part
+  // ("no such table: users") on `.cause`, and `console.error(err)` alone
+  // prints the wrapper without it.
+  console.error(`[unhandled] ${c.req.method} ${c.req.path} — ${describeError(err)}`);
+
+  if (isMissingSchema(err)) {
+    return c.json(
+      { error: "The database has not been set up yet. Apply the migrations, then try again." },
+      503,
+    );
+  }
+
   return c.json({ error: "Internal Server Error" }, 500);
 });
 
