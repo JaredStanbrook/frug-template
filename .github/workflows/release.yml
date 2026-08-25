@@ -1,5 +1,8 @@
 name: Release
 
+# Tags a GitHub release. Deployment is separate — Cloudflare's Git integration
+# deploys on push, not on tag.
+
 on:
   push:
     tags:
@@ -12,30 +15,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
-          cache: true
+          node-version-file: .node-version
+          cache: npm
 
       - name: Install
-        run: bun install --frozen-lockfile
-
-      # worker-configuration.d.ts is generated, not committed.
-      - name: Generate Wrangler types
-        run: bunx wrangler types
+        run: npm ci
 
       - name: Lint
-        run: bun run lint
+        run: npm run lint
 
-      - name: Typecheck
-        run: bun run typecheck
+      - name: Typecheck and build
+        run: npm run build
 
       - name: Test
-        run: bun run test
-
-      - name: Build
-        run: bun run build
+        run: npm run test
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

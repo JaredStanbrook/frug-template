@@ -1,13 +1,12 @@
 {
   // =====================================================================
-  // TEMPLATE CONFIG
+  // Deployed from the Cloudflare dashboard — no terminal required.
   //
-  // Every value marked CHANGE_ME is per-site and must be filled in before
-  // deploying. See docs/provisioning.md for how to obtain each one — via
-  // the wrangler CLI, the Cloudflare dashboard, or a GitHub secret.
-  //
-  // Quick audit of what is left to do:
+  // Ask Claude to fill this in (it runs `npm run configure`), or edit by
+  // hand. Find whatever is still unset:
   //   grep -in "change.me\|0000000" wrangler.jsonc
+  //
+  // Full walkthrough: docs/deploy.md
   // =====================================================================
   "$schema": "node_modules/wrangler/config-schema.json",
 
@@ -39,14 +38,13 @@
   },
 
   // ---------------------------------------------------------------------
-  // PRODUCTION lives at the TOP LEVEL, so a plain `wrangler deploy` targets
-  // the live site and keeps using the existing worker — and the secrets
-  // already set on it.
+  // Everything below is production. Cloudflare builds and deploys this on
+  // every push once the repo is connected under Settings -> Builds.
   //
-  // Named environments (see "env" at the bottom) INHERIT NOTHING. Every
-  // binding and var must be repeated there, and each is a separate worker
-  // script with its own secrets. This is the single most common way a
-  // staging deploy silently loses its database or its JWT_SECRET.
+  // Adding a staging environment later means adding an "env": { "staging":
+  // {...} } block — but named environments INHERIT NOTHING, so every binding
+  // and var must be repeated inside it, and it deploys a SEPARATE worker with
+  // its own secrets. See the appendix in docs/deploy.md.
   // ---------------------------------------------------------------------
 
   // CHANGE_ME — delete this block to publish on <name>.<subdomain>.workers.dev
@@ -59,7 +57,8 @@
     },
   ],
 
-  // CHANGE_ME — `bunx wrangler d1 create <name>` prints both values.
+  // CHANGE_ME — Dashboard: Storage & Databases -> D1 -> Create.
+  //             The Database ID is on the database's overview page.
   "d1_databases": [
     {
       "binding": "DB",
@@ -69,7 +68,7 @@
     },
   ],
 
-  // CHANGE_ME — `bunx wrangler kv namespace create KV` prints the id.
+  // CHANGE_ME — Dashboard: Storage & Databases -> KV -> Create Instance.
   "kv_namespaces": [
     {
       "binding": "KV",
@@ -77,7 +76,7 @@
     },
   ],
 
-  // CHANGE_ME — `bunx wrangler r2 bucket create <name>`.
+  // CHANGE_ME — Dashboard: R2 -> Create bucket.
   // Optional: delete this block and `R2` in worker/types.ts if the site
   // stores no files.
   "r2_buckets": [
@@ -127,10 +126,10 @@
     "JWT_EXPIRY": "86400",
 
     // --- SECURITY ---
-    // JWT_SECRET is deliberately absent: it is a SECRET, not a var.
-    //   bunx wrangler secret put JWT_SECRET
+    // JWT_SECRET is deliberately absent: it is a SECRET, not a var. Set it in
+    // the dashboard under Settings -> Variables and Secrets, type "Secret".
     // Putting it here commits it to git and leaks it to anyone with repo
-    // access. See docs/provisioning.md.
+    // access. See docs/deploy.md.
     "MAX_FAILED_LOGIN_ATTEMPTS": "5",
     "LOCKOUT_DURATION": "900000",
     "REQUIRE_EMAIL_VERIFICATION": "false",
@@ -138,6 +137,12 @@
     // Comma-separated allowlist. Empty means open registration.
     // Set this for an invite-only or single-user site.
     "ALLOWED_EMAILS": "",
+
+    // First-run admin, so you never need a terminal to get one. Register
+    // normally with this exact email and that account becomes an admin — but
+    // ONLY while no admin exists yet, so it disarms itself the moment it
+    // works. Safe to leave set; tidier to clear afterwards.
+    "BOOTSTRAP_ADMIN_EMAIL": "",
 
     // --- ROLES & PERMISSIONS ---
     // CHANGE_ME — model your own resources here. Convention:
@@ -148,8 +153,8 @@
     // worker/services/access.service.ts.
     "ROLES_AVAILABLE": "user,admin",
     "ROLES_DEFAULT": "user",
-    // Roles that cannot be self-assigned at registration. Bootstrap the
-    // first admin with `bun run create-admin:remote`.
+    // Roles that cannot be self-assigned at registration. Get your first
+    // admin with BOOTSTRAP_ADMIN_EMAIL below — no terminal needed.
     "ROLES_RESTRICTED": "admin",
     "PERMISSIONS_AVAILABLE": "notes.read,notes.create,notes.update,notes.delete,notes.update.any,notes.delete.any",
     "ROLES_INHERENT": "user:notes.read,notes.create,notes.update,notes.delete;admin:*",
@@ -179,121 +184,5 @@
     "TOTP_ALGORITHM": "SHA1",
     "TOTP_DIGITS": "6",
     "TOTP_PERIOD": "30",
-  },
-
-  // ---------------------------------------------------------------------
-  // OPTIONAL STAGING: `wrangler deploy --env staging`.
-  //
-  // This deploys a SEPARATE worker script named `<name>-staging` with its
-  // own secrets — `wrangler secret put JWT_SECRET --env staging` is a
-  // distinct command from the production one.
-  //
-  // Environments inherit nothing, so everything below is repeated on
-  // purpose. Two rules worth holding to:
-  //
-  //   1. Give staging its OWN D1 database and KV namespace. Pointing it at
-  //      production ids means a staging migration or a stray delete runs
-  //      against live data.
-  //   2. RP_ID and ORIGIN must match the STAGING hostname. A passkey
-  //      registered on one origin will not work on the other.
-  //
-  // Delete this whole block if you do not want a staging environment.
-  // ---------------------------------------------------------------------
-  "env": {
-    "staging": {
-      "routes": [
-        {
-          "pattern": "dev.change-me.example.com",
-          "custom_domain": true,
-        },
-      ],
-
-      // CHANGE_ME — a SEPARATE database from production.
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "change-me-db-staging",
-          "database_id": "00000000-0000-0000-0000-000000000000",
-          "migrations_dir": "drizzle",
-        },
-      ],
-
-      // CHANGE_ME — a SEPARATE namespace from production.
-      "kv_namespaces": [
-        {
-          "binding": "KV",
-          "id": "00000000000000000000000000000000",
-        },
-      ],
-
-      "r2_buckets": [
-        {
-          "binding": "R2",
-          "bucket_name": "change-me-files-staging",
-        },
-      ],
-
-      "ratelimits": [
-        {
-          "name": "RATE_LIMITER",
-          "namespace_id": "1001",
-          "simple": {
-            "limit": 20,
-            "period": 60,
-          },
-        },
-      ],
-
-      "observability": {
-        "enabled": true,
-      },
-
-      "vars": {
-        "ENVIRONMENT": "staging",
-
-        "APP_NAME": "Frug (staging)",
-        "APP_TAGLINE": "A Cloudflare Workers starter with batteries included.",
-        "APP_LOCALE": "en-AU",
-        "APP_CURRENCY": "AUD",
-
-        "AUTH_METHODS": "password,passkey,totp",
-        "SESSION_DURATION": "86400000",
-        "SESSION_RENEWAL_THRESHOLD": "3600000",
-        "MAX_SESSIONS_PER_USER": "5",
-        "JWT_EXPIRY": "86400",
-
-        "MAX_FAILED_LOGIN_ATTEMPTS": "5",
-        "LOCKOUT_DURATION": "900000",
-        "REQUIRE_EMAIL_VERIFICATION": "false",
-        "REQUIRE_PHONE_VERIFICATION": "false",
-        // Staging is usually worth locking to your own address.
-        "ALLOWED_EMAILS": "",
-
-        "ROLES_AVAILABLE": "user,admin",
-        "ROLES_DEFAULT": "user",
-        "ROLES_RESTRICTED": "admin",
-        "PERMISSIONS_AVAILABLE": "notes.read,notes.create,notes.update,notes.delete,notes.update.any,notes.delete.any",
-        "ROLES_INHERENT": "user:notes.read,notes.create,notes.update,notes.delete;admin:*",
-
-        // Must match the staging hostname above, not production.
-        "RP_NAME": "Frug (staging)",
-        "RP_ID": "dev.change-me.example.com",
-        "ORIGIN": "https://dev.change-me.example.com",
-
-        "PASSWORD_MIN_LENGTH": "8",
-        "PASSWORD_REQUIRE_UPPERCASE": "true",
-        "PASSWORD_REQUIRE_LOWERCASE": "true",
-        "PASSWORD_REQUIRE_NUMBERS": "true",
-        "PASSWORD_REQUIRE_SPECIAL": "true",
-
-        "PIN_LENGTH": "6",
-        "PIN_NUMBERS_ONLY": "true",
-
-        "TOTP_ISSUER": "Frug (staging)",
-        "TOTP_ALGORITHM": "SHA1",
-        "TOTP_DIGITS": "6",
-        "TOTP_PERIOD": "30",
-      },
-    },
   },
 }

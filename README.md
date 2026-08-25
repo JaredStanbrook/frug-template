@@ -8,15 +8,9 @@ It is the platform layer extracted from a real application, so the parts that
 are tedious to get right — passkeys, TOTP, account lockout, permission checks,
 migrations, the build pipeline — are already done and already tested.
 
-```
-bun install
-cp .dev.vars.example .dev.vars     # then set JWT_SECRET
-bun run migrate:local
-bun run create-admin:local --email you@example.com --generate
-bun dev                            # http://localhost:3000
-```
-
----
+**No computer required.** Ask Claude for the changes you want, then deploy from
+the Cloudflare dashboard — Cloudflare builds, migrates and ships on every push.
+The full walkthrough is **[docs/deploy.md](docs/deploy.md)**.
 
 ## What you get
 
@@ -32,111 +26,81 @@ bun dev                            # http://localhost:3000
 
 ## Starting a new site
 
-Everything site-specific is configuration. **[docs/provisioning.md](docs/provisioning.md)
-is the full walkthrough** — every binding, every secret, and the four ways to
-supply each (wrangler CLI, Cloudflare dashboard, GitHub secret, `.dev.vars`).
-The short version:
+Three things in the Cloudflare dashboard; Claude does the rest.
+**[docs/deploy.md](docs/deploy.md)** is the step-by-step version.
 
-### 1. Create the Cloudflare resources
+### 1. Create the resources (dashboard)
 
-```bash
-bunx wrangler d1 create my-site-db
-bunx wrangler kv namespace create KV
-bunx wrangler r2 bucket create my-site-files   # only if you need file storage
-```
+**Storage & Databases → D1 → Create**, and **→ KV → Create Instance**. Copy the
+**Database ID** (a UUID) and the **Namespace ID** (32 hex). Add an R2 bucket
+only if the site stores files.
 
-Each command prints an id. Keep them for the next step.
+These ids are not secrets — they are useless without an API token for your
+account, which is why they live in version control.
 
-### 2. Fill in `wrangler.jsonc`
+### 2. Tell Claude (chat)
 
-Find everything still unset:
+Paste the ids in and say what the site is called. Claude runs:
 
 ```bash
-grep -in "change.me\|0000000" wrangler.jsonc
+npm run configure -- \
+  --name my-site --app-name "My Site" \
+  --domain my-site.example.com \
+  --d1-name my-site-db --d1-id <uuid> --kv-id <32-hex> \
+  --admin-email me@example.com
 ```
 
-| Field                              | Set it to                                                                                                                        |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                             | The worker name, e.g. `my-site`. Renaming later orphans its secrets                                                              |
-| `routes`                           | Your custom domain, or delete the block to use `*.workers.dev`                                                                   |
-| `d1_databases[0]`                  | `database_name` and `database_id` from step 1                                                                                    |
-| `kv_namespaces[0].id`              | The KV id from step 1                                                                                                            |
-| `r2_buckets[0]`                    | Your bucket name, or delete the block and `R2` from `worker/types.ts`                                                            |
-| `vars.APP_NAME` / `APP_TAGLINE`    | How the site names itself in the nav, title and footer                                                                           |
-| `vars.APP_LOCALE` / `APP_CURRENCY` | Date and money formatting                                                                                                        |
-| `vars.RP_ID` / `vars.ORIGIN`       | **Must match your real domain** or passkeys silently fail. `RP_ID` is the bare hostname; `ORIGIN` is the full origin with scheme |
-| `vars.TOTP_ISSUER` / `RP_NAME`     | The name shown in authenticator apps and passkey prompts                                                                         |
+which fills every placeholder in `wrangler.jsonc`, validates the ids, and
+reports anything still unset. Then it commits and pushes.
 
-The `migrate:*` scripts target the **`DB` binding**, not a database name, so
-they need no editing.
+### 3. Set the secret + connect the repo (dashboard)
 
-**Production is the top level of the file; `env.staging` is a separate worker
-that inherits nothing.** Every binding and var is repeated there deliberately —
-give staging its own D1 and KV ids, or a staging migration runs against live
-data. Delete the `env` block if you do not want staging.
+**Settings → Variables and Secrets → Add**, type **Secret**, name
+`JWT_SECRET`. Then **Settings → Builds → Connect**, pick the repo, and set:
 
-### 3. Set the secret
+| Field          | Value            |
+| -------------- | ---------------- |
+| Build command  | `npm run build`  |
+| Deploy command | `npm run deploy` |
 
-`JWT_SECRET` signs session cookies. It must never live in `wrangler.jsonc`.
+`npm run deploy` runs `wrangler d1 migrations apply DB --remote && wrangler
+deploy`, so the schema is migrated immediately before the new code goes live.
 
-```bash
-openssl rand -base64 48                       # generate
-bunx wrangler secret put JWT_SECRET           # production
-bunx wrangler secret put JWT_SECRET --env staging   # separate worker, separate secret
-echo 'JWT_SECRET="<value>"' > .dev.vars       # local (git-ignored)
-```
+### 4. Become the admin
 
-Anyone with this value can mint a session for any user. Rotate it by setting a
-new one — every existing session is invalidated, which is the intended effect.
+Register on the live site with the email you passed as `--admin-email`. That
+account is granted `admin` on sign-up, because `BOOTSTRAP_ADMIN_EMAIL` is set.
 
-Deploying from GitHub Actions needs `CLOUDFLARE_API_TOKEN` and
-`CLOUDFLARE_ACCOUNT_ID` as repository secrets — but **not** `JWT_SECRET`, which
-already lives on the worker and survives deploys. See
-`.github/workflows/deploy.yml`.
+It only fires while **no admin exists**, so it disarms itself the moment it
+works — no terminal, and no standing back door.
 
-### 4. Define roles and permissions
-
-Still in `wrangler.jsonc`. The template ships a `user` / `admin` pair:
-
-```jsonc
-"ROLES_AVAILABLE": "user,admin",     // every role the system understands
-"ROLES_DEFAULT": "user",             // assigned at registration
-"ROLES_RESTRICTED": "admin",         // cannot be self-assigned via the API
-"PERMISSIONS_AVAILABLE": "posts.read,posts.create,posts.update,posts.delete,posts.update.any,posts.delete.any",
-"ROLES_INHERENT": "user:posts.read,posts.create;admin:*"
-```
-
-The convention: `resource.action` grants the action **on rows you own**, and
-`resource.action.any` grants it on anyone's. `*` expands to everything in
-`PERMISSIONS_AVAILABLE`. Mirror the resource names in the `Resource` type in
-`worker/services/access.service.ts`.
-
-### 5. Choose auth methods
-
-```jsonc
-"AUTH_METHODS": "password,passkey,totp"   // any of: passkey, password, pin, totp, email, sms
-```
-
-Disabled methods disappear from the login and register UI and their API routes
-return 404 — you do not need to delete code to turn one off.
-
-### 6. Migrate, seed, deploy
-
-```bash
-bun run migrate:remote
-bun run create-admin:remote --email you@example.com --generate
-bun run deploy:prod
-```
-
-`create-admin` is the bootstrap path for the first `admin` user, since `admin`
-is in `ROLES_RESTRICTED` and cannot be granted through registration.
-
-### 7. Make it yours
+### 5. Make it yours
 
 - Replace `worker/views/pages/Home.tsx` with a real landing page.
 - Replace `public/favicon.svg`.
 - Edit `menuConfig` in `worker/views/components/NavBar.tsx` to add nav links.
 - Delete the Notes example (below) once you've copied its shape.
+
+### Roles, permissions and auth methods
+
+All of it is configuration in `wrangler.jsonc`:
+
+```jsonc
+"AUTH_METHODS": "password,passkey,totp",  // passkey, password, pin, totp, email, sms
+"ROLES_AVAILABLE": "user,admin",
+"ROLES_DEFAULT": "user",                  // assigned at registration
+"ROLES_RESTRICTED": "admin",              // cannot be self-assigned via the API
+"PERMISSIONS_AVAILABLE": "posts.read,posts.create,posts.update.any",
+"ROLES_INHERENT": "user:posts.read,posts.create;admin:*"
+```
+
+`resource.action` grants the action **on rows you own**; `resource.action.any`
+grants it on anyone's; `*` expands to everything in `PERMISSIONS_AVAILABLE`.
+Mirror the resource names in the `Resource` type in
+`worker/services/access.service.ts`.
+
+Disabled auth methods vanish from the UI and their API routes return 404 — you
+never delete code to turn one off.
 
 ---
 
@@ -149,7 +113,7 @@ small files. To build your own, copy its shape:
 1. **Schema** — `worker/schema/note.schema.ts`. Define the Drizzle table,
    spread `ownershipColumns` for `userId` + timestamps, and derive Zod
    schemas with `drizzle-zod`.
-2. **Migration** — `bun run gen`, then `bun run migrate:local`.
+2. **Migration** — `npm run gen`. Cloudflare applies it on the next deploy.
 3. **Views** — `worker/views/notes/NoteComponents.tsx`. Pure functions of
    props; no data access. Give every HTMX-swappable fragment a stable `id`.
 4. **Routes** — `worker/routes/notes.tsx`. Guard with `requireUser`, validate
@@ -167,22 +131,31 @@ Then delete the notes files: `worker/schema/note.schema.ts`,
 
 ## Commands
 
-| Command                                          | Does                                             |
-| ------------------------------------------------ | ------------------------------------------------ |
-| `bun dev`                                        | Vite dev server with hot reload at `:3000`       |
-| `bun run preview`                                | Build, then run the real worker under Wrangler   |
-| `bun run build`                                  | Typecheck, then build client and server bundles  |
-| `bun run typecheck`                              | `tsc -b`                                         |
-| `bun run lint`                                   | ESLint                                           |
-| `bun run format:write`                           | Prettier                                         |
-| `bun run test`                                   | Vitest                                           |
-| `bun run gen`                                    | Regenerate Drizzle migrations and Wrangler types |
-| `bun run migrate:local` / `:remote` / `:staging` | Apply D1 migrations (targets the `DB` binding)   |
-| `bun run create-admin:local` / `:remote`         | Create or promote an admin user                  |
-| `bun run deploy:staging` / `:prod`               | Migrate, build and deploy                        |
+You do not need any of these — Cloudflare runs the build and deploy. They are
+here for local work, and for Claude to run on your behalf.
 
-Run `bun run gen` after **any** change to `worker/schema/` or `wrangler.jsonc` —
+| Command                                  | Does                                                              |
+| ---------------------------------------- | ----------------------------------------------------------------- |
+| `npm run configure -- --help`            | Fill in `wrangler.jsonc` for a new site                           |
+| `npm run dev`                            | Vite dev server with hot reload at `:3000`                        |
+| `npm run build`                          | Generate types, typecheck, build client + server bundles          |
+| `npm run deploy`                         | Migrate, then deploy — **this is the dashboard's Deploy command** |
+| `npm run preview`                        | Build, then run the real worker under Wrangler                    |
+| `npm run typecheck`                      | `tsc -b`                                                          |
+| `npm run lint`                           | ESLint                                                            |
+| `npm run format:write`                   | Prettier                                                          |
+| `npm run test`                           | Vitest                                                            |
+| `npm run gen`                            | Regenerate Drizzle migrations and Wrangler types                  |
+| `npm run migrate:local` / `:remote`      | Apply D1 migrations (targets the `DB` binding)                    |
+| `npm run create-admin:local` / `:remote` | Create or promote an admin directly                               |
+
+Run `npm run gen` after **any** change to `worker/schema/` or `wrangler.jsonc` —
 it regenerates both the SQL migration and `worker-configuration.d.ts`.
+`npm run build` regenerates the types on its own, which is why Cloudflare's
+build works without the generated file being committed.
+
+Bun works for all of these too; `package-lock.json` is committed because npm is
+what Cloudflare's build image detects most reliably.
 
 ---
 
@@ -230,13 +203,14 @@ Path aliases: `@server/*` → `worker/*`, `@views/*` → `worker/views/*`,
 
 ## Security checklist before going live
 
-- [ ] `JWT_SECRET` set via `wrangler secret put`, not in `wrangler.jsonc`
-      (and separately for `--env staging`)
-- [ ] `RP_ID` and `ORIGIN` match the production domain exactly
+- [ ] `JWT_SECRET` set as a **Secret** in the dashboard — not a Variable, not a
+      Build variable, never in `wrangler.jsonc`
+- [ ] `RP_ID` and `ORIGIN` match the deployed hostname exactly
 - [ ] `JWT_EXPIRY` is in **seconds** (`86400` = 24h), not milliseconds
-- [ ] Staging uses **separate** D1 and KV ids from production
 - [ ] `ALLOWED_EMAILS` set if registration should be invite-only
 - [ ] `ROLES_RESTRICTED` includes every privileged role
-- [ ] The first admin created via `create-admin`, not self-registration
+- [ ] Admin account created via the `BOOTSTRAP_ADMIN_EMAIL` flow, and the
+      variable cleared afterwards
 - [ ] `/dev` router deleted or confirmed admin-only
-- [ ] `bun run lint && bun run typecheck && bun run test` all green
+- [ ] `grep -in "change.me\|0000000" wrangler.jsonc` returns only comment lines
+- [ ] `npm run lint && npm run typecheck && npm run test` all green

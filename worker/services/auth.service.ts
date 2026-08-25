@@ -23,6 +23,7 @@ import {
 import type { AuthenticatorTransportFuture } from "@simplewebauthn/types";
 import { isoBase64URL, isoUint8Array } from "@simplewebauthn/server/helpers";
 import type { AuthConfig } from "../config/auth.config";
+import { userRoles } from "../schema/roles.schema";
 import { RoleService } from "./roles.service";
 import type { Context } from "hono";
 import { sign } from "hono/jwt";
@@ -152,6 +153,47 @@ export class Auth {
       roles,
       permissions: Array.from(permissions),
     };
+  }
+
+  /**
+   * First-run admin bootstrap, so a new site never needs a terminal.
+   *
+   * `admin` is listed in ROLES_RESTRICTED and cannot be self-assigned at
+   * registration, which leaves a chicken-and-egg problem: someone has to
+   * create the first admin. Rather than require a CLI, set
+   * BOOTSTRAP_ADMIN_EMAIL and register normally — that one account is
+   * promoted on sign-up.
+   *
+   * Three conditions, all required, keep this from being a back door:
+   *   1. BOOTSTRAP_ADMIN_EMAIL is set to a non-empty value.
+   *   2. The registering email matches it exactly (case-insensitive).
+   *   3. NO admin exists yet.
+   *
+   * Condition 3 means the mechanism disarms itself permanently the moment it
+   * succeeds. Leaving the var set afterwards is harmless, but clearing it is
+   * still good hygiene.
+   */
+  private async resolveBootstrapRole(email: string | undefined | null, fallback: string) {
+    const configured = (this.c.env.BOOTSTRAP_ADMIN_EMAIL || "").trim();
+    if (!configured || !email) return fallback;
+    if (configured.toLowerCase() !== email.trim().toLowerCase()) return fallback;
+
+    const [existingAdmin] = await this.db
+      .select({ id: userRoles.id })
+      .from(userRoles)
+      .where(eq(userRoles.role, "admin"))
+      .limit(1);
+
+    if (existingAdmin) {
+      console.warn(
+        "BOOTSTRAP_ADMIN_EMAIL is set but an admin already exists — ignoring. " +
+          "Clear the variable; it can no longer take effect.",
+      );
+      return fallback;
+    }
+
+    console.log(`Bootstrapping first admin for ${email}.`);
+    return "admin";
   }
 
   // ==========================================
@@ -314,6 +356,7 @@ export class Auth {
 
     const [newUser] = await this.db.insert(users).values(userData).returning();
 
+    roleToAssign = await this.resolveBootstrapRole(newUser.email, roleToAssign);
     await this.roleService.assignRole(newUser.id, roleToAssign, undefined, undefined);
 
     const roles = await this.roleService.getUserRoles(newUser.id);
@@ -831,6 +874,7 @@ export class Auth {
     };
     const [newUser] = await this.db.insert(users).values(userData).returning();
 
+    roleToAssign = await this.resolveBootstrapRole(newUser.email, roleToAssign);
     await this.roleService.assignRole(newUser.id, roleToAssign, undefined, undefined);
 
     const roles = await this.roleService.getUserRoles(newUser.id);

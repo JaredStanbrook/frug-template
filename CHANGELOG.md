@@ -5,6 +5,52 @@ This project follows Semantic Versioning.
 
 ## [Unreleased]
 
+### Deployment model
+
+The repo is now designed to go from template to live site **without a
+terminal**: Claude prepares the repo, and Cloudflare's Git integration builds,
+migrates and deploys on every push. See `docs/deploy.md`.
+
+- `npm run deploy` — `wrangler d1 migrations apply DB --remote && wrangler
+deploy`. This is the Deploy command to paste into the dashboard; the default
+  `npx wrangler deploy` would ship code against an un-migrated schema.
+- `npm run build` runs `wrangler types` first, so the build works in a
+  container that starts without the generated (git-ignored)
+  `worker-configuration.d.ts`.
+- `BOOTSTRAP_ADMIN_EMAIL` — registering with this exact address grants `admin`,
+  but only while no admin exists, so it disarms itself permanently on first
+  use. Replaces `create-admin` as the first-admin path, since that needed a
+  CLI. Explicit `"role": "admin"` at registration is still rejected.
+- `scripts/configure.ts` (`npm run configure`) rewrites every placeholder in
+  `wrangler.jsonc` from a few flags, validates the ids, and reports whatever is
+  still unset. Intended to be run by Claude from values pasted into chat.
+- `docs/deploy.md` replaces `docs/provisioning.md`, written around the
+  dashboard rather than the CLI, with a build-failure table, a no-CLI manual
+  migration fallback, and rollback notes.
+- All `package.json` scripts are runtime-agnostic — no `bunx`/`bun run` — so
+  Cloudflare's build image runs them whichever package manager it selects.
+- npm is now the canonical package manager (`package-lock.json` committed,
+  `bun.lock` removed) because it is what the build image detects most
+  reliably. Bun still works locally.
+- `.node-version` is `24.18.0`, a version preinstalled in the build image; it
+  was `20.11.1`, which is not.
+- CI and release workflows moved to Node/npm. The GitHub deploy workflow was
+  removed — Cloudflare deploys now, and two deploy paths racing each other is
+  worse than one.
+- The `env.staging` block was removed. The dashboard flow is one Worker, one
+  connected repo, one deploy command; `docs/deploy.md` has an appendix on
+  adding staging back, including that named environments inherit nothing.
+
+### Dependencies
+
+- `@hono/zod-validator` 0.5 → 0.9. 0.5 declares a peer dependency on zod 3
+  while this project uses zod 4; Bun tolerated it, npm refuses to install,
+  which would have broken the Cloudflare build outright.
+- `drizzle-orm` 0.43 → 0.45.2, clearing a high-severity advisory. Verified the
+  generated migration SQL is byte-identical.
+- Dropped `bun-types`; added `tsx` to run the repo's scripts under Node.
+  `scripts/create-admin.ts` no longer uses Bun-only APIs.
+
 ### Added
 
 - Initial template extracted from a production Cloudflare Workers application.

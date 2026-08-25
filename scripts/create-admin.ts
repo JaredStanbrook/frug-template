@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+
 import { hashPassword, randomBase64Url } from "../worker/lib/crypto";
 
 type Mode = "local" | "remote";
@@ -24,7 +26,7 @@ const usage = () => {
 };
 
 const parseArgs = () => {
-  const args = Bun.argv.slice(2);
+  const args = process.argv.slice(2);
   const get = (flag: string) => {
     const idx = args.indexOf(flag);
     if (idx === -1) return undefined;
@@ -134,21 +136,18 @@ const run = async () => {
   const dbName = databaseTarget();
   const modeFlag = mode === "remote" ? "--remote" : "--local";
 
-  const proc = Bun.spawn(
-    ["bunx", "wrangler", "d1", "execute", dbName, modeFlag, "--command", sql],
-    { stdout: "pipe", stderr: "pipe" },
+  const result = spawnSync(
+    "npx",
+    ["wrangler", "d1", "execute", dbName, modeFlag, "--command", sql, "--yes"],
+    { encoding: "utf-8" },
   );
 
-  const stdout = await new Response(proc.stdout).text();
-  const stderr = await new Response(proc.stderr).text();
-  const exitCode = await proc.exited;
+  if (result.stdout?.trim()) console.log(result.stdout.trim());
+  if (result.stderr?.trim()) console.error(result.stderr.trim());
 
-  if (stdout.trim()) console.log(stdout.trim());
-  if (stderr.trim()) console.error(stderr.trim());
-
-  if (exitCode !== 0) {
-    console.error(`create-admin failed (exit ${exitCode})`);
-    process.exit(exitCode);
+  if (result.status !== 0) {
+    console.error(`create-admin failed (exit ${result.status})`);
+    process.exit(result.status ?? 1);
   }
 
   console.log(`Admin user ensured for ${email}`);

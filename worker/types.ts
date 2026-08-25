@@ -28,6 +28,12 @@ export type Vars = {
   PERMISSIONS_AVAILABLE: string;
   RP_NAME: string;
   RP_ID: string;
+  /**
+   * First-run admin bootstrap. When set, registering with this exact email
+   * grants admin — but only while no admin exists yet. See
+   * `Auth.resolveBootstrapRole`.
+   */
+  BOOTSTRAP_ADMIN_EMAIL: string;
 };
 
 /**

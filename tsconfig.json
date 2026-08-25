@@ -12,7 +12,7 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["./worker-configuration.d.ts", "@types/node", "bun-types"],
+    "types": ["./worker-configuration.d.ts", "@types/node"],
     "baseUrl": ".",
     "paths": {
       "@components/*": ["./worker/components/*"],

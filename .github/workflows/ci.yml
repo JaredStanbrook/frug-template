@@ -1,5 +1,9 @@
 name: CI
 
+# Checks only. Deployment is handled by Cloudflare's Git integration
+# (Workers & Pages -> your Worker -> Settings -> Builds), which runs
+# `npm run build` then `npm run deploy` on every push.
+
 on:
   push:
     branches:
@@ -17,33 +21,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
-          cache: true
+          node-version-file: .node-version
+          cache: npm
 
       - name: Install
-        run: bun install --frozen-lockfile
-
-      # worker-configuration.d.ts is generated, not committed, but tsconfig
-      # lists it under "types" — typecheck fails without this step.
-      - name: Generate Wrangler types
-        run: bunx wrangler types
+        run: npm ci
 
       - name: Lint
-        run: bun run lint
+        run: npm run lint
 
       - name: Format check
-        run: bun run format
+        run: npm run format
 
-      - name: Typecheck
-        run: bun run typecheck
+      # `npm run build` runs `wrangler types` first, so the generated
+      # worker-configuration.d.ts exists before tsc needs it.
+      - name: Typecheck and build
+        run: npm run build
 
-      # `bun run test` (not `bun test`) — the latter uses Bun's own runner and
-      # ignores the vitest script.
       - name: Test
-        run: bun run test
-
-      - name: Build
-        run: bun run build
+        run: npm run test

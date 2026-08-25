@@ -21,20 +21,22 @@ Path aliases: `@server/*` → `worker/*`, `@views/*` → `worker/views/*`,
 
 ## Build, Test, and Development Commands
 
-- `bun dev` — Vite dev server with hot reload on `:3000`.
-- `bun run build` — typecheck, then build client and server bundles.
-- `bun run typecheck` — `tsc -b`.
-- `bun run lint` — ESLint across the repo.
-- `bun run test` — Vitest.
-- `bun run gen` — regenerate Drizzle migrations and `worker-configuration.d.ts`.
+- `npm run dev` — Vite dev server with hot reload on `:3000`.
+- `npm run build` — generate types, typecheck, build client and server bundles.
+- `npm run deploy` — migrate then deploy; this is the dashboard's Deploy command.
+- `npm run configure -- --help` — fill in `wrangler.jsonc` for a new site.
+- `npm run typecheck` — `tsc -b`.
+- `npm run lint` — ESLint across the repo.
+- `npm run test` — Vitest.
+- `npm run gen` — regenerate Drizzle migrations and `worker-configuration.d.ts`.
   Run after **any** change to `worker/schema/` or `wrangler.jsonc`.
-- `bun run migrate:local` — apply D1 migrations locally.
-- `bun run preview` — build and run the real worker under Wrangler.
+- `npm run migrate:local` — apply D1 migrations locally.
+- `npm run preview` — build and run the real worker under Wrangler.
 
 ## Coding Style & Naming Conventions
 
 - TypeScript only. Two-space indent, double quotes, semicolons, 100-column
-  print width (Prettier enforces this; run `bun run format:write`).
+  print width (Prettier enforces this; run `npm run format:write`).
 - Feature-based folders under `worker/routes/`; keep JSX fragments small.
 - Prefer server-rendered HTMX fragments. Reach for a Web Component only when
   client state is genuinely unavoidable.
@@ -43,23 +45,30 @@ Path aliases: `@server/*` → `worker/*`, `@views/*` → `worker/views/*`,
 
 ## Testing Guidelines
 
-- Vitest, run with `bun run test`. Tests live in `tests/`, named `*.test.ts`.
+- Vitest, run with `npm run test`. Tests live in `tests/`, named `*.test.ts`.
 - `tests/ui-pages.test.ts` asserts every route renders and that guards
   redirect. Add a path there whenever you add a page — it is the cheapest way
   to catch a view importing something a route no longer provides.
 - `tests/utils/fakeDb.ts` is a deliberately dumb Drizzle stand-in: it replays
   fixtures based on which table was selected `from`. For real query behaviour,
-  test against local D1 with `wrangler d1 execute --local`.
+  test against local D1 with `npx wrangler d1 execute DB --local`.
 
 ## Configuration & Security
 
 - Copy `.dev.vars.example` to `.dev.vars` for local secrets. It is git-ignored.
-- `JWT_SECRET` is set with `wrangler secret put` in production — never as a
-  `var` in `wrangler.jsonc`. See `docs/provisioning.md` for every binding and
-  secret, and the four ways to supply each.
-- Production is the **top level** of `wrangler.jsonc`; `env.staging` is a
-  separate worker script that **inherits nothing** — every binding and var is
-  repeated there deliberately, and its secrets are set with `--env staging`.
+- `JWT_SECRET` is set as a **Secret** in the Cloudflare dashboard — never as a
+  `var` in `wrangler.jsonc`, and never as a _Build_ variable (those exist only
+  during the build). See `docs/deploy.md`.
+- Deployment is Cloudflare's Git integration: it runs `npm run build` then
+  `npm run deploy` (migrate, then deploy) on every push. There is no deploy
+  step a human runs, so keep both scripts working under plain npm — no
+  `bunx`/`bun run` inside package.json scripts.
+- `npm run build` runs `wrangler types` first, because
+  `worker-configuration.d.ts` is generated rather than committed and the
+  build container starts without it. Do not remove that step.
+- The first admin comes from `BOOTSTRAP_ADMIN_EMAIL` (see
+  `Auth.resolveBootstrapRole`), which only fires while no admin exists. Do not
+  loosen those conditions.
 - `SESSION_DURATION` and `LOCKOUT_DURATION` are milliseconds; `JWT_EXPIRY` is
   **seconds**. Mixing them up is silent and gives multi-year sessions.
 - `RP_ID` and `ORIGIN` must match the deployed domain or passkeys fail silently.
