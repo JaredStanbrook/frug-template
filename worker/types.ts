@@ -52,8 +52,6 @@ export type Bindings = Vars & {
   DB: D1Database;
   /** Static client bundle produced by `vite build --mode client`. */
   ASSETS: Fetcher;
-  /** Optional file storage. Remove here and in wrangler.jsonc if unused. */
-  R2: R2Bucket;
   /** Per-IP throttle on the auth API. See worker/routes/api/auth.ts. */
   RATE_LIMITER: RateLimiter;
 };

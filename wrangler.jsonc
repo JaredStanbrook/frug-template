@@ -13,7 +13,7 @@
   // CHANGE_ME — the Worker script name. This is the identity Cloudflare
   // stores secrets, routes and deployments against, so renaming it later
   // creates a *new* worker and orphans the old one's secrets.
-  "name": "frug-app",
+  "name": "frugal",
 
   "compatibility_date": "2025-01-01",
   "main": "worker/index.ts",
@@ -52,7 +52,7 @@
   // a custom_domain on a zone in the same account resolves without it.
   "routes": [
     {
-      "pattern": "change-me.example.com",
+      "pattern": "frugal.stanbrook.me",
       "custom_domain": true,
     },
   ],
@@ -62,8 +62,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "change-me-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_name": "frugal-template-db",
+      "database_id": "0d98fddd-9199-4c3f-81c1-d5180446c0b2",
       "migrations_dir": "drizzle",
     },
   ],
@@ -72,17 +72,7 @@
   "kv_namespaces": [
     {
       "binding": "KV",
-      "id": "00000000000000000000000000000000",
-    },
-  ],
-
-  // CHANGE_ME — Dashboard: R2 -> Create bucket.
-  // Optional: delete this block and `R2` in worker/types.ts if the site
-  // stores no files.
-  "r2_buckets": [
-    {
-      "binding": "R2",
-      "bucket_name": "change-me-files",
+      "id": "70192fe342234452b5bf9e741f89d368",
     },
   ],
 
@@ -106,8 +96,8 @@
 
     // --- BRANDING ---
     // CHANGE_ME — how the site names itself in the title, nav and footer.
-    "APP_NAME": "Frug",
-    "APP_TAGLINE": "A Cloudflare Workers starter with batteries included.",
+    "APP_NAME": "Frugal",
+    "APP_TAGLINE": "A frugal Cloudflare Workers starter.",
     "APP_LOCALE": "en-AU",
     "APP_CURRENCY": "AUD",
 
@@ -135,14 +125,16 @@
     "REQUIRE_EMAIL_VERIFICATION": "false",
     "REQUIRE_PHONE_VERIFICATION": "false",
     // Comma-separated allowlist. Empty means open registration.
-    // Set this for an invite-only or single-user site.
-    "ALLOWED_EMAILS": "",
+    // Locked to the owner: this site is on a public domain, so leaving it
+    // empty would let anyone create an account. Add addresses (or clear it
+    // entirely) to open it up.
+    "ALLOWED_EMAILS": "jared@stanbrook.me",
 
     // First-run admin, so you never need a terminal to get one. Register
     // normally with this exact email and that account becomes an admin — but
     // ONLY while no admin exists yet, so it disarms itself the moment it
     // works. Safe to leave set; tidier to clear afterwards.
-    "BOOTSTRAP_ADMIN_EMAIL": "",
+    "BOOTSTRAP_ADMIN_EMAIL": "jared@stanbrook.me",
 
     // --- ROLES & PERMISSIONS ---
     // CHANGE_ME — model your own resources here. Convention:
@@ -163,9 +155,9 @@
     // CHANGE_ME — these MUST match the deployed domain or passkeys fail
     // with no useful error. RP_ID is the bare hostname (no scheme, no
     // port); ORIGIN is the full origin users load the site from.
-    "RP_NAME": "Frug",
-    "RP_ID": "change-me.example.com",
-    "ORIGIN": "https://change-me.example.com",
+    "RP_NAME": "Frugal",
+    "RP_ID": "frugal.stanbrook.me",
+    "ORIGIN": "https://frugal.stanbrook.me",
 
     // --- PASSWORD CONFIG ---
     "PASSWORD_MIN_LENGTH": "8",
@@ -180,7 +172,7 @@
 
     // --- TOTP CONFIG ---
     // TOTP_ISSUER is the name shown in the user's authenticator app.
-    "TOTP_ISSUER": "Frug",
+    "TOTP_ISSUER": "Frugal",
     "TOTP_ALGORITHM": "SHA1",
     "TOTP_DIGITS": "6",
     "TOTP_PERIOD": "30",
