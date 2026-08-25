@@ -6,6 +6,11 @@
   Soft off-whites and warm greys replace clinical white.
 */
 :root {
+  /* Tells the browser to render native controls (checkboxes, radios,
+     scrollbars, date pickers) in the matching scheme. Without it a native
+     checkbox stays light-on-dark and looks pasted on. */
+  color-scheme: light;
+
   --background: oklch(0.985 0.002 90); /* Soft warm white, not sterile */
   --foreground: oklch(0.25 0.02 80); /* Soft deep grey-brown text */
   --card: oklch(1 0 0); /* Pure white cards for clean lift */
@@ -67,6 +72,8 @@
   Deep charcoal/warm black (no pure blacks), Jarrah accents.
 */
 .dark {
+  color-scheme: dark;
+
   --background: oklch(0.16 0.01 280); /* Deep charcoal, slight cool undertone */
   --foreground: oklch(0.9 0.01 280); /* Soft off-white */
   --card: oklch(0.2 0.01 280); /* Slightly raised surface */

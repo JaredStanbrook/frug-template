@@ -20,6 +20,17 @@ import { z } from "zod";
 import { users } from "./auth.schema";
 import { ownershipColumns } from "./common";
 
+/**
+ * Accent slots, not colour names.
+ *
+ * Each maps to a `chart-*` theme token in the view layer, so a note's colour
+ * follows the active theme instead of being a fixed hex that only reads well
+ * in one mode. Storing the slot rather than the colour means a re-theme
+ * restyles every existing note for free.
+ */
+export const NOTE_ACCENTS = ["neutral", "1", "2", "3", "4", "5"] as const;
+export type NoteAccent = (typeof NOTE_ACCENTS)[number];
+
 export const note = sqliteTable(
   "note",
   {
@@ -27,6 +38,7 @@ export const note = sqliteTable(
     title: text("title").notNull(),
     body: text("body"),
     pinned: integer("pinned", { mode: "boolean" }).default(false).notNull(),
+    accent: text("accent", { enum: NOTE_ACCENTS }).default("neutral").notNull(),
     deletedAt: text("deleted_at"),
     ...ownershipColumns,
   },
@@ -55,10 +67,22 @@ export const selectNoteSchema = createSelectSchema(note);
 export const noteFormSchema = z.object({
   title: z.string().min(1, "Title is required").max(120),
   body: z.string().max(10_000).optional().default(""),
+  // An unchecked checkbox is absent from the body entirely, so this has to
+  // tolerate `undefined` as well as the "on" the browser sends when ticked.
   pinned: z
     .union([z.literal("on"), z.literal("true"), z.literal("")])
     .optional()
     .transform((v) => v === "on" || v === "true"),
+  accent: z.enum(NOTE_ACCENTS).optional().default("neutral"),
+});
+
+/** Query string for the list view: live search plus a pinned-only toggle. */
+export const noteFilterSchema = z.object({
+  q: z.string().max(120).optional().default(""),
+  pinned: z
+    .union([z.literal("1"), z.literal("")])
+    .optional()
+    .transform((v) => v === "1"),
 });
 
 // ==========================================
@@ -68,3 +92,4 @@ export const noteFormSchema = z.object({
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type SelectNote = z.infer<typeof selectNoteSchema>;
 export type NoteForm = z.infer<typeof noteFormSchema>;
+export type NoteFilter = z.infer<typeof noteFilterSchema>;

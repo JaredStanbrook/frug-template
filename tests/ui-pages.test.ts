@@ -107,4 +107,38 @@ describe("UI pages load", () => {
       expect(res.status, `GET ${path}`).toBe(200);
     }
   });
+
+  it("serves the notes list with search and filter params", async () => {
+    const testApp = createTestApp(createMockData().users[0]);
+
+    // A literal % must not be treated as a LIKE wildcard, and an unknown
+    // accent must not break rendering — both are easy to regress.
+    for (const path of [
+      "/notes?q=first",
+      "/notes?q=100%25",
+      "/notes?pinned=1",
+      "/notes?q=x&pinned=1",
+    ]) {
+      const res = await get(testApp, path);
+      expect(res.status, `GET ${path}`).toBe(200);
+    }
+  });
+
+  it("returns only the grid fragment when HTMX targets it", async () => {
+    const testApp = createTestApp(createMockData().users[0]);
+
+    const res = await testApp.fetch(
+      new Request("http://localhost/notes?q=first", {
+        headers: { "HX-Request": "true", "HX-Target": "note-grid" },
+      }),
+      env,
+    );
+    const html = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(html).toContain('id="note-grid"');
+    // A fragment, not a page — hx-boost navigations still get the full layout.
+    expect(html).not.toContain("<!DOCTYPE html>");
+    expect(html).not.toContain("<title>");
+  });
 });

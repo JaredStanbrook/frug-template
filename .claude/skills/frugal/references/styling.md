@@ -233,6 +233,21 @@ them with `h-*`/`w-*`; they inherit `currentColor`, so colour the parent.
 
 ## Pitfalls
 
+- **Never build a class name by interpolation.** Tailwind scans source text
+  for complete class names, so `bg-chart-${n}` is never generated and the
+  colour silently goes missing. Map to full strings instead:
+
+  ```ts
+  const ACCENTS = { "1": "bg-chart-1", "2": "bg-chart-2" } as const;
+  ```
+
+  After adding classes that only appear in one place, it is worth confirming
+  they made it: `grep -c "\.bg-chart-1" dist/client/static/main.css`.
+- **Native form controls need `color-scheme`.** `:root` sets
+  `color-scheme: light` and `.dark` sets `dark`, which is what makes
+  checkboxes, radios, scrollbars and date pickers render in the right scheme.
+  A new theme class must set it too, or its checkboxes stay light.
+
 - **Testing one mode only.** Toggle the theme before calling it done; this is
   where hardcoded colours surface.
 - **`text-white` on a coloured surface.** Use the paired `*-foreground`.

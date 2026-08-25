@@ -1,0 +1,1 @@
+ALTER TABLE `note` ADD `accent` text DEFAULT 'neutral' NOT NULL;

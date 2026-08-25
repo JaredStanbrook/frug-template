@@ -96,6 +96,26 @@ A form that replaces the page:
 <form hx-post="/things" hx-target="body" hx-swap="outerHTML">
 ```
 
+**Telling a search swap from a boosted navigation.** `hx-boost` on `<main>`
+means an ordinary link click is *also* an HTMX request, so `HX-Request` alone
+cannot distinguish "the user typed in the search box" from "the user clicked
+Notes in the nav". Both would get the bare fragment, and the boosted
+navigation would render a page with no layout. Branch on the target instead —
+the search control names it, boosted navigation does not:
+
+```tsx
+const isGridSwap = c.req.header("HX-Target") === "note-grid";
+if (isGridSwap) return c.html(<NoteGrid {...props} />);
+return c.render(<NoteListPage {...props} />, { title: "Notes" });
+```
+
+**Put HTMX attributes on the control, not the form.** A trigger on the form
+needs `from:` selectors to know which child fired, which is fragile and fails
+silently. Give each control its own `hx-get` and `hx-trigger` plus
+`hx-include="closest form"`, so every control still submits the whole form and
+their states cannot diverge. Leave the `<form action method>` intact and the
+page keeps working with JavaScript off.
+
 `worker/components/main.ts` already wires the global behaviour: Lucide icons
 are re-created after every swap, `409` responses are allowed to swap (so a
 conflict can render a form with errors), a generic error toast fires on
