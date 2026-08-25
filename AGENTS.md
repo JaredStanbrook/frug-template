@@ -30,6 +30,15 @@ Path aliases: `@server/*` → `worker/*`, `@views/*` → `worker/views/*`,
 - `npm run test` — Vitest.
 - `npm run gen` — regenerate Drizzle migrations and `worker-configuration.d.ts`.
   Run after **any** change to `worker/schema/` or `wrangler.jsonc`.
+- **Regenerating `package-lock.json`: use `npm install --package-lock-only`.**
+  A plain `npm install` records only the optional platform binaries matching
+  the machine it ran on (`@tailwindcss/oxide-*`, `@esbuild/*`, `@rollup/*`,
+  `lightningcss-*`, `@img/sharp-*`). The lockfile then has those packages
+  listed under a parent's `optionalDependencies` with no matching
+  `node_modules/...` entry, and Cloudflare's `npm clean-install` aborts with
+  `Missing: <pkg> from lock file`. A local `npm ci` may still pass, so this
+  does not always show up before the deploy — check that a cross-platform
+  entry such as `node_modules/@tailwindcss/oxide-darwin-arm64` exists.
 - `npm run migrate:local` — apply D1 migrations locally.
 - `npm run preview` — build and run the real worker under Wrangler.
 
