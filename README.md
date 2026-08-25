@@ -12,6 +12,11 @@ migrations, the build pipeline — are already done and already tested.
 the Cloudflare dashboard — Cloudflare builds, migrates and ships on every push.
 The full walkthrough is **[docs/deploy.md](docs/deploy.md)**.
 
+Claude knows how to build on this template: the **`frugal` skill** in
+`.claude/skills/frugal/` teaches it the frontend/backend split, the steps a new
+feature needs, and the theme-token styling rules. It loads automatically when
+you ask for a feature or a visual change.
+
 ## What you get
 
 | Area        | What's included                                                                                                                                                                       |

@@ -1,5 +1,10 @@
 # Repository Guidelines
 
+**Start with the `frugal` skill** (`.claude/skills/frugal/`) when building or
+styling anything here. It covers the frontend/backend split, the registration
+steps a new feature needs in order to be reachable, and the theme-token rules
+that keep light and dark mode working. This file is the short version.
+
 This repository is a **template**. Code here is copied into new sites, so
 changes should stay generic — resist encoding one site's domain into it.
 

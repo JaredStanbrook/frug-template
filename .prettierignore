@@ -3,3 +3,7 @@ node_modules
 .wrangler
 drizzle/meta
 **/*.min.*
+
+# Skill docs — prose and illustrative snippets; Prettier rewrites the
+# HTML examples into something misleading.
+.claude

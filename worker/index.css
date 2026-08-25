@@ -149,10 +149,13 @@
 
   --text-tiny: 0.625rem;
 
-  --radius-sm: calc(var(--radius) * -1.5);
-  --radius-md: calc(var(--radius) * -0.5);
+  /* Derived from --radius (0.5rem) as 4/6/8/12px. The multiplier form these
+     replace produced NEGATIVE lengths for sm and md, which CSS rejects, so
+     `rounded-sm` and `rounded-md` silently rendered square. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-xl: calc(var(--radius) + 4px);
 
   --shadow-2xs: var(--shadow-2xs);
   --shadow-xs: var(--shadow-xs);
