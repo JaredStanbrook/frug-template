@@ -30,8 +30,6 @@ export const Layout: FC<LayoutProps> = (props) => {
             ? html`<link rel="stylesheet" href="/static/main.css" />`
             : html`<link rel="stylesheet" href="/worker/index.css" />`
         }
-        <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
-        <script src="https://unpkg.com/lucide@latest"></script>
         <script
           type="module"
           src="${isProd ? "/static/client.js" : "/worker/components/main.ts"}"

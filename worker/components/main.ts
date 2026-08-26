@@ -1,4 +1,13 @@
 import "../index.css";
+
+// HTMX first: it wires itself up on DOMContentLoaded, and this module is
+// deferred, so importing it here still runs before that fires. Bundled rather
+// than loaded from a CDN so the app has no third-party runtime dependency and
+// works offline and behind a strict CSP.
+import "htmx.org";
+
+import { renderIcons } from "./lib/icons";
+
 import "./ui/AppToaster";
 import "./ui/ThemeProvider";
 import "./ui/ThemeToggle";
@@ -12,27 +21,22 @@ import "./auth/TotpVerifyModal";
 
 declare global {
   interface Window {
-    lucide?: any;
+    /**
+     * Exposed for the inline scripts the server renders — `NavBar.tsx` toggles
+     * theme icons and needs to re-render them, and it cannot import from this
+     * bundle. Deliberately the only global this file adds.
+     */
+    renderIcons?: typeof renderIcons;
   }
 }
 
-/**
- * Initialize Lucide icons after HTMX content swaps
- */
-document.body.addEventListener("htmx:afterSwap", () => {
-  if (window.lucide) {
-    window.lucide.createIcons();
-  }
-});
+window.renderIcons = renderIcons;
 
-/**
- * Initialize Lucide icons on page load
- */
-document.addEventListener("DOMContentLoaded", () => {
-  if (window.lucide) {
-    window.lucide.createIcons();
-  }
-});
+// Render icons for markup HTMX just swapped in.
+document.body.addEventListener("htmx:afterSwap", () => renderIcons());
+
+// And for the server-rendered page itself.
+document.addEventListener("DOMContentLoaded", () => renderIcons());
 
 /**
  * Optional: Add loading state to body during HTMX requests

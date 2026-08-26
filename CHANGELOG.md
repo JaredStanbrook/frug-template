@@ -61,6 +61,21 @@ deploy`. This is the Deploy command pasted into the dashboard; the default
   Worker, one connected repo, one deploy command.
 - `ENVIRONMENT` var, so code can distinguish deployments.
 
+### Self-hosted client assets
+
+- HTMX and Lucide are bundled into `/static/client.js` instead of loaded from
+  `cdn.jsdelivr.net` and `unpkg.com`. The page now makes no third-party request
+  at runtime: it works offline, needs no `script-src` exception, and no longer
+  depends on two external hosts staying up. `lucide@latest` was also unpinned,
+  so the icon set could change under a deployed site without a commit.
+- Icons are imported individually via `worker/components/lib/icons.ts`, so the
+  bundle carries the ~30 in use rather than Lucide's ~1600. Total client
+  JavaScript went from 528KB across three requests to 174KB in one — 67% less.
+- `tests/icons.test.ts` fails the build for any `data-lucide` literal that is
+  not registered, naming the file and the import to add; `renderIcons()` warns
+  in the console for names built at runtime. Together these turn a silently
+  invisible icon into a caught error.
+
 ### Build environment
 
 Every item here would have broken the Cloudflare build:

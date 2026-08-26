@@ -70,7 +70,8 @@ export const ThemeToggle = () => html`
           });
         });
 
-        if (window.lucide) window.lucide.createIcons({ nameAttr: "data-lucide" });
+        // Provided by the client bundle (worker/components/main.ts).
+        if (window.renderIcons) window.renderIcons();
       }
 
       function setTheme(theme) {

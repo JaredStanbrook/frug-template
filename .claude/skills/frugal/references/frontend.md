@@ -116,8 +116,23 @@ silently. Give each control its own `hx-get` and `hx-trigger` plus
 their states cannot diverge. Leave the `<form action method>` intact and the
 page keeps working with JavaScript off.
 
-`worker/components/main.ts` already wires the global behaviour: Lucide icons
-are re-created after every swap, `409` responses are allowed to swap (so a
+**Everything the browser runs is in one bundle.** HTMX, Lucide and the app's
+own components are all imported by `worker/components/main.ts` and built into
+`/static/client.js`. Nothing is fetched from a third-party CDN at runtime, so
+the page needs no external request, works offline, and needs no `script-src`
+exception. Add a library as a dependency and import it there — do not add a
+`<script src="https://…">` to `Layout.tsx`.
+
+**Icons are registered, not global.** `worker/components/lib/icons.ts` imports
+the ~30 icons in use so the bundler can drop the other ~1600. Using
+`data-lucide="something"` that is not registered renders nothing;
+`tests/icons.test.ts` catches every name written as a literal and tells you
+the import to add, and `renderIcons()` warns in the console for names built at
+runtime. `window.renderIcons()` is exposed for the server-rendered inline
+scripts, which cannot import from the bundle.
+
+It already wires the global behaviour: Lucide icons are re-rendered after
+every swap, `409` responses are allowed to swap (so a
 conflict can render a form with errors), a generic error toast fires on
 unhandled failures, open `<details>` close on outside click, and the page
 scrolls to top after a `#main-content` swap. Extend that file rather than

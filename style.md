@@ -15,6 +15,7 @@ The patterns used across `worker/views/`, `worker/components/` and
 - **Engine**: Hono JSX (server-side rendering).
 - **Styling**: **Tailwind CSS v4**, colors in OKLCH.
 - **Icons**: [Lucide](https://lucide.dev/), via `<i data-lucide="name">`.
+  Registered in `worker/components/lib/icons.ts` — see below.
 - **Dynamic UI**: [HTMX](https://htmx.org/) for AJAX and DOM swapping.
 - **Web Components**: Lit elements (`<theme-provider>`, `<app-toaster>`) for
   global state and feedback only.
@@ -79,6 +80,17 @@ Set in the `--font-*` variables in `index.css`.
   active, `text-muted-foreground` otherwise.
 - **Tables**: wrapped in `overflow-auto` inside a rounded bordered card, so
   wide content scrolls instead of breaking the page.
+
+### Icons
+
+Write `<i data-lucide="pencil" class="h-4 w-4"></i>`. They are replaced with
+SVG on load and after every HTMX swap, inherit `currentColor`, and are sized
+with `h-*`/`w-*` on the placeholder.
+
+Icons are imported individually rather than pulled from a CDN, so the bundle
+carries the ~30 in use instead of Lucide's full 377KB. **A new icon must be
+added to `worker/components/lib/icons.ts`** or it renders as nothing;
+`npm run test` fails with the exact name and import to add.
 
 ## 7. Animation and interactivity
 

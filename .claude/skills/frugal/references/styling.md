@@ -231,6 +231,10 @@ for unknown statuses.
 replaced on load and after every HTMX swap by the handler in `main.ts`. Size
 them with `h-*`/`w-*`; they inherit `currentColor`, so colour the parent.
 
+Only icons registered in `worker/components/lib/icons.ts` render — the bundle
+ships ~30 rather than Lucide's full set. Add the import there when you use a
+new one; `npm run test` fails with the name and the import if you forget.
+
 ## Pitfalls
 
 - **Never build a class name by interpolation.** Tailwind scans source text
