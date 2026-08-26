@@ -10,6 +10,7 @@ Confusing them is the most common source of frontend bugs here.
 - [HTMX](#htmx)
 - [Client islands](#client-islands)
 - [The layout shell](#the-layout-shell)
+- [SEO](#seo)
 - [Formatting](#formatting)
 - [The build](#the-build)
 
@@ -203,6 +204,47 @@ usually reads as "the feature didn't work".
 
 Page titles: `c.render(view, { title: "Things" })` or the `title` argument to
 `htmxResponse` — the layout appends the app name.
+
+## SEO
+
+Server rendering already gives you the hard half — a crawler gets complete HTML
+with no JavaScript step, and pages return real status codes. The metadata is
+handled by `worker/lib/seo.ts` and applied in `renderer.middleware.tsx`, so a
+route only states what differs:
+
+```tsx
+return c.render(<PostPage post={post} />, {
+  title: post.title,
+  description: post.summary,   // ~155 chars, about THIS page
+  image: post.coverUrl,        // link preview
+  type: "article",
+});
+```
+
+Everything else is derived: `<title>` gets the site name appended, the
+canonical URL is built from `ORIGIN` and the path, Open Graph and Twitter tags
+are filled in, and `<html lang>` comes from `APP_LOCALE`.
+
+Two defaults worth knowing, both overridable per page:
+
+- **A query string means `noindex`.** `?q=…`, `?page=2` and tracking params are
+  the same content reached differently, and the canonical points at the bare
+  path. Without this a filter UI quietly publishes thousands of thin pages.
+  Pass `noindex: false` if a filtered view really is its own page.
+- **`/login`, `/register`, `/admin`, `/api`, `/dev` are `noindex`.** They
+  compete with real content and offer a searcher nothing.
+
+**Adding a public page means adding it to the sitemap** — `STATIC_ROUTES` in
+`worker/routes/seo.ts`, or, for database-backed URLs, a query in that handler.
+Only list what a signed-out visitor can actually load; anything behind
+`requireUser` just produces redirects in Search Console.
+
+`robots.txt` disallows everything when `ENVIRONMENT` is not `production`, so a
+staging or `workers.dev` copy cannot be indexed alongside the real site — that
+failure splits a site's ranking and is invisible until it has happened.
+
+Give every page exactly one `<h1>`, and write the description for a human
+reading a search result rather than for a keyword.
 
 ## Formatting
 

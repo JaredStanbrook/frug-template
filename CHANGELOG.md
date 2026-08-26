@@ -76,6 +76,23 @@ deploy`. This is the Deploy command pasted into the dashboard; the default
   in the console for names built at runtime. Together these turn a silently
   invisible icon into a caught error.
 
+### SEO
+
+- Per-page metadata via `worker/lib/seo.ts`: a route sets `description`,
+  `image`, `type` or `noindex` on `c.render` and inherits the rest. Previously
+  every page carried the site tagline as its description, which search engines
+  read as duplicate content.
+- Canonical URLs built from `ORIGIN` and the path, so a site reachable on both
+  a custom domain and `workers.dev` points at one address — and so filters and
+  tracking params (`?q=…`, `?utm_source=…`) resolve to the page they vary,
+  rather than each combination ranking as its own thin page.
+- Open Graph and Twitter card tags, so a shared link renders a preview.
+- `<html lang>` now comes from `APP_LOCALE` instead of being hardcoded `en`.
+- `/robots.txt` and `/sitemap.xml`. robots disallows everything when
+  `ENVIRONMENT` is not `production`, so a staging copy cannot be indexed
+  alongside the real site.
+- `/login`, `/register`, `/admin`, `/api` and `/dev` are `noindex`.
+
 ### Performance
 
 - The auth path ran **four sequential D1 queries on every authenticated

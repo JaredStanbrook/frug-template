@@ -13,7 +13,11 @@ webAuth.get("/", (c) => {
   const { auth, app } = c.var;
 
   return c.render(<Home app={app} user={auth.user} />, {
-    title: "Home",
+    // The home page is the site's own entry in search results, so it gets the
+    // tagline as its description and no "Home ·" prefix on the title.
+    title: undefined,
+    description: app.tagline,
+    type: "website",
   });
 });
 

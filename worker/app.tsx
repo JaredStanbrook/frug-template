@@ -10,6 +10,7 @@ import { apiAuth } from "./routes/api/auth";
 import { webAuth } from "./routes/web/auth";
 import { logsRoute } from "./routes/admin/logs";
 import { notesRoute } from "./routes/notes.tsx";
+import { seoRoute } from "./routes/seo";
 import devRouter from "./routes/dev.tsx";
 
 import type { AppEnv } from "./types";
@@ -27,6 +28,9 @@ admin.route("/logs", logsRoute);
 // 2. MAIN APP
 // ==========================================
 const app = new Hono<AppEnv>()
+  // robots.txt and sitemap.xml. Before the renderer, since neither is HTML.
+  .route("/", seoRoute)
+
   // Database inspector. Dev-only — see routes/dev.tsx.
   .route("/dev", devRouter)
 
