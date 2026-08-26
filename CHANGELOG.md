@@ -76,6 +76,21 @@ deploy`. This is the Deploy command pasted into the dashboard; the default
   in the console for names built at runtime. Together these turn a silently
   invisible icon into a caught error.
 
+### Performance
+
+- The auth path ran **four sequential D1 queries on every authenticated
+  request** — the user row, then `user_roles`, then `user_roles` again inside
+  the permission lookup, then `user_permissions`. `getRolesAndPermissions()`
+  now derives both halves from one concurrent query pair, removing the
+  duplicate and two of the four round trips. Locally that is ~25% off the
+  database-attributable time per page; on remote D1, where each query is a
+  network hop, the saving is proportionally larger.
+- The theme named Montserrat, Domine and Source Code Pro but never loaded
+  them, so every page silently fell back to system fonts. The tokens are now
+  honest system stacks — no download, no layout shift, text on the first
+  frame — with a note on how to self-host a real typeface without adding a
+  font CDN.
+
 ### Build environment
 
 Every item here would have broken the Cloudflare build:

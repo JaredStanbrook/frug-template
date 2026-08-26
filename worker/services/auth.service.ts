@@ -132,8 +132,8 @@ export class Auth {
    * credentials to the client, so never skip this on the way out.
    */
   private async toSafeUser(user: any): Promise<SafeUser> {
-    const roles = await this.roleService.getUserRoles(user.id);
-    const permissions = await this.roleService.getUserPermissions(user.id);
+    // One call, one concurrent query pair — see RoleService.getRolesAndPermissions.
+    const { roles, permissions } = await this.roleService.getRolesAndPermissions(user.id);
 
     return {
       id: user.id,
@@ -359,8 +359,7 @@ export class Auth {
     roleToAssign = await this.resolveBootstrapRole(newUser.email, roleToAssign);
     await this.roleService.assignRole(newUser.id, roleToAssign, undefined, undefined);
 
-    const roles = await this.roleService.getUserRoles(newUser.id);
-    const permissions = await this.roleService.getUserPermissions(newUser.id);
+    const { roles, permissions } = await this.roleService.getRolesAndPermissions(newUser.id);
 
     const safeUser: SafeUser = {
       id: newUser.id,
@@ -877,8 +876,7 @@ export class Auth {
     roleToAssign = await this.resolveBootstrapRole(newUser.email, roleToAssign);
     await this.roleService.assignRole(newUser.id, roleToAssign, undefined, undefined);
 
-    const roles = await this.roleService.getUserRoles(newUser.id);
-    const permissions = await this.roleService.getUserPermissions(newUser.id);
+    const { roles, permissions } = await this.roleService.getRolesAndPermissions(newUser.id);
 
     const safeUser: SafeUser = {
       id: newUser.id,

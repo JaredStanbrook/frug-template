@@ -52,9 +52,21 @@
   --sidebar-border: oklch(0.9 0.01 90);
   --sidebar-ring: oklch(0.55 0.08 140);
 
-  --font-sans: Montserrat, sans-serif;
-  --font-serif: "Domine", serif;
-  --font-mono: Source Code Pro, monospace;
+  /* System font stacks: nothing to download, no layout shift, and the text is
+     painted on the first frame. The theme previously named Montserrat, Domine
+     and Source Code Pro without ever loading them, so every page silently fell
+     back to these anyway — this just makes the declaration honest.
+
+     To use a real typeface, self-host the woff2 in public/ and add an
+     @font-face here with `font-display: swap`. Do not link a font CDN: it
+     reintroduces the third-party runtime dependency the client bundle exists
+     to avoid, and blocks first paint on a third party. */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
   --radius: 0.5rem; /* Modern but soft radius */
   --shadow-2xs: 0px 5px 10px -2px hsl(40 20% 60% / 0.05);

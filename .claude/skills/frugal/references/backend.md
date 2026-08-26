@@ -263,6 +263,33 @@ one for anything carrying a `cause` or SQL. The classification errs towards
 generic, so the worst case is a vaguer message rather than a leak. Logs appear
 in `wrangler tail` and in the dashboard under Workers Logs.
 
+## Performance
+
+The thing that dominates a Workers request is D1 round trips. The Worker itself
+is fast; each query is a network hop, so latency is roughly "number of
+sequential queries × round trip".
+
+- **Never `await` independent queries in sequence.** Two `await`s in a row are
+  two round trips; `Promise.all` makes them one wall-clock hop. This was the
+  single biggest cost in this codebase — the auth path ran four sequential
+  queries, one of them a duplicate, on *every* authenticated request.
+- **Fetch once and pass it down.** `RoleService.getRolesAndPermissions()`
+  returns both halves from one query pair because both derive from the same
+  tables; asking for them separately read `user_roles` twice.
+- **Count the queries a page costs.** A list view that fetches rows and a
+  count is two; if the count can come from the rows you already have, it is
+  one. Beware a query inside a `.map()` — that is one round trip per row.
+- **`c.var.auth.user` is already resolved** by the auth middleware. Re-reading
+  the user in a route is a wasted query.
+- **Indexes matter on the columns you filter by.** `ownershipColumns` gives you
+  `userId`; add `index("thing_user_idx").on(table.userId)` for anything scoped
+  by owner, as `note.schema.ts` does.
+
+Client-side: everything the browser runs is one same-origin bundle, and the
+theme uses system font stacks, so a page paints without waiting on any external
+request. Keep it that way — a font CDN or a script tag reintroduces exactly the
+blocking third-party dependency this avoids.
+
 ## Testing
 
 `tests/ui-pages.test.ts` asserts every route renders and that guards redirect.
