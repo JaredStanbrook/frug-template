@@ -30,6 +30,32 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Runs only in the template repository, so it disappears in repos made
+      # from it. The template once got configured for a real site by mistake,
+      # which meant the next site inherited a live database id and its first
+      # deploy migrated someone else's data.
+      - name: Template placeholders intact
+        if: github.repository == 'JaredStanbrook/frug-template'
+        run: |
+          missing=0
+          for token in \
+            '"name": "frug-app"' \
+            '"database_name": "change-me-db"' \
+            '"database_id": "00000000-0000-0000-0000-000000000000"' \
+            '"id": "00000000000000000000000000000000"' \
+            '"bucket_name": "change-me-files"'
+          do
+            if ! grep -qF "$token" wrangler.jsonc; then
+              echo "::error::Missing placeholder in wrangler.jsonc: $token"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::The template must ship placeholders only. Configure the repo made FROM the template, not the template itself — otherwise the next site inherits a live database id."
+            exit 1
+          fi
+          echo "Placeholders intact."
+
       - name: Lint
         run: npm run lint
 

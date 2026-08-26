@@ -60,7 +60,8 @@ const usage = () => {
       "",
       "Required: --name --app-name --d1-name --d1-id --kv-id",
       "Optional: --domain --tagline --admin-email --locale --currency",
-      "          --r2-bucket <name> | --no-r2",
+      "          --r2-bucket <name> | --no-r2      (R2 is for uploaded files)",
+      "          --no-kv                          (only if passkeys are off)",
       "",
       "Omit --domain to deploy on <name>.<subdomain>.workers.dev.",
     ].join("\n"),
@@ -129,13 +130,20 @@ const run = () => {
   const d1Id = str(args["d1-id"]);
   const kvId = str(args["kv-id"]);
 
-  const missing = Object.entries({
+  const dropKv = Boolean(args["no-kv"]);
+
+  const required: Record<string, string | undefined> = {
     "--name": name,
     "--app-name": appName,
     "--d1-name": d1Name,
     "--d1-id": d1Id,
-    "--kv-id": kvId,
-  })
+  };
+  // KV is only dispensable when the site has no passkey sign-in; see
+  // references/bindings.md. Requiring an explicit --no-kv makes that a choice
+  // rather than an omission.
+  if (!dropKv) required["--kv-id (or --no-kv)"] = kvId;
+
+  const missing = Object.entries(required)
     .filter(([, v]) => !v)
     .map(([k]) => k);
 
@@ -155,10 +163,12 @@ const run = () => {
     console.error(`--d1-id does not look like a Cloudflare database id: ${d1Id}`);
     process.exit(1);
   }
-  if (!/^[0-9a-f]{32}$/i.test(kvId!)) {
+  if (!dropKv && !/^[0-9a-f]{32}$/i.test(kvId!)) {
     console.error(`--kv-id does not look like a Cloudflare namespace id: ${kvId}`);
     process.exit(1);
   }
+
+  const warnings: string[] = [];
 
   let s = readFileSync(CONFIG, "utf-8");
   const before = s;
@@ -169,7 +179,21 @@ const run = () => {
     '"database_id": "00000000-0000-0000-0000-000000000000"',
     `"database_id": ${JSON.stringify(d1Id)}`,
   );
-  s = s.replaceAll('"id": "00000000000000000000000000000000"', `"id": ${JSON.stringify(kvId)}`);
+  if (dropKv) {
+    const stripped = removeTopLevelBlock(s, "kv_namespaces");
+    if (stripped === null) {
+      console.error("Could not find the kv_namespaces block to remove — remove it by hand.");
+      process.exit(1);
+    }
+    s = stripped;
+    warnings.push(
+      "Removed the KV binding. Also delete `KV` from the Bindings type in\n" +
+        "  worker/types.ts, and make sure AUTH_METHODS does not include `passkey` —\n" +
+        "  passkey sign-in stores its challenge in KV and will fail without it.",
+    );
+  } else {
+    s = s.replaceAll('"id": "00000000000000000000000000000000"', `"id": ${JSON.stringify(kvId)}`);
+  }
 
   s = s.replaceAll('"APP_NAME": "Frug"', `"APP_NAME": ${JSON.stringify(appName)}`);
   s = s.replaceAll('"RP_NAME": "Frug"', `"RP_NAME": ${JSON.stringify(appName)}`);
@@ -210,7 +234,7 @@ const run = () => {
       process.exit(1);
     }
     s = stripped;
-    console.warn(
+    warnings.push(
       [
         "No --domain given: the routes block was removed and the worker will",
         "publish on <name>.<subdomain>.workers.dev.",
@@ -230,7 +254,9 @@ const run = () => {
       process.exit(1);
     }
     s = strippedR2;
-    console.log("Removed the R2 binding. Also delete `R2` from worker/types.ts.");
+    warnings.push(
+      "Removed the R2 binding. Also delete `R2` from the Bindings type in\n" + "  worker/types.ts.",
+    );
   } else if (r2Bucket) {
     s = s.replaceAll(
       '"bucket_name": "change-me-files"',
@@ -256,6 +282,11 @@ const run = () => {
     for (const [n, line] of remaining) console.log(`  ${n}: ${line.trim()}`);
   } else {
     console.log("No placeholders remain.");
+  }
+
+  if (warnings.length) {
+    console.log("\nBefore you build:");
+    for (const w of warnings) console.log(`- ${w}`);
   }
 
   console.log(

@@ -32,6 +32,28 @@ you ask for a feature or a visual change.
 
 ## Starting a new site
 
+**Use this repository as a GitHub template** — _Use this template → Create a new
+repository_. Never configure this repo itself: real resource ids belong in the
+repo made from it, or the next site inherits a live database.
+
+Then, in the new repo:
+
+### 0. Write a brief first
+
+Claude builds a far better app when it knows the shape of the thing before the
+first table exists, because the schema is the expensive part to change later.
+
+**[docs/brief-prompt.md](docs/brief-prompt.md)** has a prompt you can paste into
+any chat assistant — it interviews you and produces a brief in the shape this
+template consumes. Paste the result into Claude Code and say "set the repo up
+and start building". Prefer to write it yourself? Copy
+**[docs/brief-template.md](docs/brief-template.md)**.
+
+Claude then follows `.claude/skills/frugal/references/new-site.md`: it works out
+which of D1, KV and R2 the app needs, asks you to create them, configures the
+repo, models the domain in one migration, builds the features, and strips the
+example.
+
 Three things in the Cloudflare dashboard; Claude does the rest.
 **[docs/deploy.md](docs/deploy.md)** is the step-by-step version.
 
@@ -40,6 +62,15 @@ Three things in the Cloudflare dashboard; Claude does the rest.
 **Storage & Databases → D1 → Create**, and **→ KV → Create Instance**. Copy the
 **Database ID** (a UUID) and the **Namespace ID** (32 hex). Add an R2 bucket
 only if the site stores files.
+
+| Binding | Needed when                                                  |
+| ------- | ------------------------------------------------------------ |
+| **D1**  | Always — auth and roles live here                            |
+| **KV**  | Passkey sign-in is enabled (it holds the WebAuthn challenge) |
+| **R2**  | Users upload or download files                               |
+
+A binding declared but not provisioned fails the deploy, so tell Claude which
+ones you want and it removes the rest.
 
 These ids are not secrets — they are useless without an API token for your
 account, which is why they live in version control.

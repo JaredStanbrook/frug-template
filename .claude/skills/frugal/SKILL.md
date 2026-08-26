@@ -1,6 +1,6 @@
 ---
 name: frugal
-description: Build and style features in the Frugal Cloudflare Workers template (Hono + server-rendered JSX + HTMX + D1/Drizzle, Tailwind theme tokens). Use this skill whenever you are adding or changing anything in this repo — a page, route, form, database table, migration, nav link, auth or permission rule — and for every visual or CSS change, however small. Trigger it on requests like "add a feature", "make a page for X", "add a table", "build a form", "change the colours", "restyle this", "make it look better", "add a dashboard", or any mention of worker/, HTMX, Drizzle, D1, wrangler.jsonc, themes, or dark mode. It covers the frontend/backend split, the registration steps a new feature needs in order to actually appear, and the theme-token styling rules that keep light and dark mode working — all of which are easy to miss and tedious to debug afterwards.
+description: Build, configure and style apps on the Frugal Cloudflare Workers template (Hono + server-rendered JSX + HTMX + D1/Drizzle, Tailwind theme tokens). Use this skill for BOTH jobs it covers. First, turning a fresh copy of the template into a real site — trigger on "I want to build X with this", "set up this repo", "new site from this template", a pasted app brief, or any mention of wiring D1, KV or R2. Second, all ongoing work — adding a page, route, form, table, migration, nav link, auth or permission rule, and every visual or CSS change however small ("restyle this", "change the colours", "make it look better", "add a dashboard", dark mode). It covers the exact template-to-app procedure, how to wire each binding, the frontend/backend split, the registration steps a feature needs in order to be reachable, and the theme-token rules that keep light and dark working — all easy to miss and tedious to debug afterwards.
 ---
 
 # Building on the Frugal template
@@ -12,6 +12,29 @@ router — the server is the application.
 
 Read `architecture.md` in the repo root for the request lifecycle. This skill
 is about _how to add to it_ without breaking the parts that are already right.
+
+## First: is this still the template?
+
+Check before doing anything else, because the answer changes what you do:
+
+```bash
+grep -in "change.me\|0000000\|frug-app" wrangler.jsonc | grep -v ":\s*//"
+```
+
+**Any hit outside a comment** means this repo has never been configured. Do not
+start writing features — read `references/new-site.md` and follow it from the
+top. It covers getting a brief, choosing which of D1/KV/R2 the app needs,
+configuring the repo, modelling the domain in one migration, and stripping the
+example feature. Skipping it produces an app that builds locally and cannot
+deploy, because its bindings point at placeholders.
+
+**No hits** means this is a real site. Carry on with the rest of this file.
+
+One thing that holds in both cases: **never configure the template repository
+itself.** Real ids belong in the repo made *from* the template. A configured
+template hands the next site someone else's database, and its first deploy
+migrates live data. If you find real ids in a repo that is meant to be the
+template, say so rather than building on it.
 
 ## Four things that matter most
 
@@ -189,6 +212,10 @@ npm run lint
 npm run format:write
 ```
 
+In a web session the SessionStart hook (`.claude/hooks/session-start.sh`) has
+already run `npm install` and `wrangler types`, so the build works immediately.
+Locally, run those once yourself.
+
 To see it running: `npm run migrate:local` once, then `npm run dev` on
 :3000 (`.dev.vars` needs `JWT_SECRET`; set `RP_ID=localhost` and
 `ORIGIN=http://localhost:3000` there for passkeys).
@@ -205,6 +232,10 @@ rather than a rollback. `docs/deploy.md` covers setup, failures and rollback.
 
 ## Reference files
 
+- `references/new-site.md` — **read this first if the repo is still the
+  template.** The ordered procedure from fresh copy to working app.
+- `references/bindings.md` — D1, KV and R2: which to use for what, how to wire,
+  remove or add each, and how to verify before deploying.
 - `references/styling.md` — the theme system in depth: every token and its
   role, adding a theme, component patterns, dark-mode pitfalls.
 - `references/backend.md` — schema, validation, services, auth, RBAC, HTMX
