@@ -103,7 +103,7 @@ export class NavUserMenu extends LitElement {
                   <button
                     @click=${this.handleLogout}
                     ?disabled=${this.isLoggingOut}
-                    class="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-destructive/10 hover:text-destructive text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     ${
                       this.isLoggingOut

@@ -3,12 +3,21 @@ import type { SafeUser } from "../../schema/auth.schema";
 import { type AuthConfig } from "@server/config/auth.config";
 import { StatusBadge } from "../lib/utils";
 
+/**
+ * Status swatches, in theme tokens rather than the raw Tailwind palette.
+ *
+ * `bg-emerald-100 text-emerald-800` looks right in light mode and renders dark
+ * text on a dark field the moment the theme flips — the palette has no dark
+ * counterpart. Every colour here is a token, so both modes follow the theme.
+ *
+ * Add a swatch per role in ROLES_AVAILABLE; unlisted roles fall back to
+ * `default`.
+ */
 const styles: Record<string, string> = {
-  verified: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  unverified: "bg-amber-100 text-amber-800 border-amber-200",
-  admin: "bg-purple-100 text-purple-800 border-purple-200",
-  user: "bg-blue-100 text-blue-800 border-blue-200",
-  // Add a swatch per role in ROLES_AVAILABLE; unlisted roles fall back below.
+  verified: "bg-success text-success-foreground border-transparent",
+  unverified: "bg-warning text-warning-foreground border-transparent",
+  admin: "bg-primary text-primary-foreground border-transparent",
+  user: "bg-secondary text-secondary-foreground border-transparent",
   default: "bg-muted text-muted-foreground border-border",
 };
 export interface ProfileProps {
@@ -30,8 +39,10 @@ export const ProfilePage: FC<ProfileProps> = (props) => {
     });
   };
 
+  // No top padding for the header here: Layout already offsets <main> for the
+  // fixed NavBar, and adding it again stacks the two.
   return (
-    <div class="max-w-7xl mx-auto space-y-8 p-8 pt-20 animate-in fade-in duration-500">
+    <div class="max-w-5xl mx-auto space-y-8 p-4 py-8 animate-in fade-in duration-500">
       <div class="space-y-4 animate-in fade-in duration-300">
         <div class="flex items-center justify-between">
           <div>
@@ -50,7 +61,13 @@ export const ProfilePage: FC<ProfileProps> = (props) => {
             <p class="text-sm text-muted-foreground">Basic identification details.</p>
           </div>
 
-          <div class="p-6 pt-0 grid gap-6 md:grid-cols-2">
+          {/* `[&>*]:min-w-0` is load-bearing. A grid item defaults to
+              `min-width: auto`, so it refuses to shrink below its content's
+              min-content width — and a 36-character user id or a long email
+              has no break opportunity at all. Without this the items stayed
+              full width and pushed the page into a horizontal scroll on a
+              phone, with `truncate` unable to do anything about it. */}
+          <div class="p-6 pt-0 grid gap-6 md:grid-cols-2 [&>*]:min-w-0">
             <div class="space-y-1">
               <label class="text-muted-foreground text-xs uppercase font-medium">User ID</label>
               <div class="font-mono text-sm bg-muted p-2 rounded truncate select-all">
@@ -62,8 +79,8 @@ export const ProfilePage: FC<ProfileProps> = (props) => {
               <label class="text-muted-foreground text-xs uppercase font-medium">
                 Email Address
               </label>
-              <div class="flex items-center gap-2">
-                <span>{props.user.email}</span>
+              <div class="flex min-w-0 items-center gap-2">
+                <span class="truncate">{props.user.email}</span>
                 {props.user.emailVerified
                   ? StatusBadge("verified", styles, "badge-check")
                   : StatusBadge("unverified", styles, "badge-x")}
@@ -130,7 +147,7 @@ export const ProfilePage: FC<ProfileProps> = (props) => {
           <div class="p-6 pt-0 space-y-4">
             {/* TOTP Section (Example of static conditional rendering) */}
             {methods.includes("totp") && (
-              <div class="flex items-center justify-between p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
                 <div class="flex items-center gap-4">
                   <div
                     class={`p-2.5 rounded-full ${
@@ -191,7 +208,7 @@ export const ProfilePage: FC<ProfileProps> = (props) => {
             {/*<profile-totp-card>isEnabled={props.user.totpEnabled ? true : undefined}></profile-totp-card>*/}
             {/* Change Password */}
             {methods.includes("password") && (
-              <div class="flex items-center justify-between p-4 border rounded-lg">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg">
                 <div class="flex items-center gap-4">
                   <div class="p-2 bg-muted rounded-full">
                     <svg
@@ -246,7 +263,7 @@ export const ProfilePage: FC<ProfileProps> = (props) => {
           </div>
 
           <div class="p-6 pt-0">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h4 class="font-medium">Delete Account</h4>
                 <p class="text-sm text-muted-foreground">

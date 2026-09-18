@@ -124,7 +124,10 @@ export function parseAuthConfig(env: any): AuthConfig {
       requireEmailVerification,
       requirePhoneVerification,
       allowedEmails,
-      jwtSecret: env.JWT_SECRET || "default",
+      // No fallback on purpose. A default here signs real sessions with a
+      // value published in this template's source; `requireSecrets` stops the
+      // app before an empty one can be used.
+      jwtSecret: env.JWT_SECRET ?? "",
       jwtExpiry: parseInt(env.JWT_EXPIRY) || 7 * 24 * 60 * 60,
     },
     roles: {
@@ -199,6 +202,10 @@ export function requiresAnyMethod(config: AuthConfig, ...methods: AuthMethod[]):
 export function validateAuthConfig(env: any): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   const config = parseAuthConfig(env);
+
+  if (!env.JWT_SECRET) {
+    errors.push("JWT_SECRET must be set as a Secret on the Worker (see docs/deploy.md).");
+  }
 
   // Method Validation
   if (config.methods.size === 0) {

@@ -53,6 +53,87 @@ These are the mistakes that cost the most time, in order:
    and bundles. It catches the class of error — a view importing something a
    route no longer passes — that this architecture makes easy to create.
 
+Then read the next section, because the build catches none of it.
+
+## Traps that produce no error
+
+Everything here typechecks, lints clean, renders without throwing, and is
+wrong. Each one shipped at least once. Most now have a test — but those tests
+only cover the template's own pages, so the habit is what protects your code.
+
+**An interpolated Tailwind class name does not exist.** Tailwind builds CSS by
+scanning source for _complete_ class names, so `grid-cols-${n}` is never
+generated and the rule silently does nothing. Worse, in a plain JSX attribute
+(`class="grid-cols-${n}"` — double quotes, no braces) there is no interpolation
+at all, and the literal text `${n}` goes into the markup. Write whole class
+names and map a value onto them:
+
+```tsx
+const gridColsFor = (n: number) => (n >= 3 ? "grid-cols-3" : "grid-cols-2");
+```
+
+Caught by "renders no unevaluated template interpolation" in
+`tests/ui-pages.test.ts`. Note what let the original survive: the broken
+element only rendered with more than one auth method enabled, and the tests
+configured one. **A branch no test configures is untested** — vary the config,
+not just the route.
+
+**A pale palette tint has no dark-mode counterpart.** `bg-emerald-100
+text-emerald-800` reads perfectly in light mode and is dark-on-dark the moment
+the theme flips. Reach for a semantic token: `success` and `warning` exist
+alongside `primary` and `destructive` so status UI never needs the palette.
+Caught by `tests/conventions.test.ts`.
+
+**A hover-only control does not exist on a phone.** `opacity-0
+group-hover:opacity-100` on the only button that performs an action means a
+touch user can never reach it. Fine for decoration, never for the only path to
+an action. Interactive targets are `h-11` (44px) — which is why the template
+has no `h-9` buttons left. Also caught by `tests/conventions.test.ts`.
+
+**A missing secret fails on the success path only.** `setSignedCookie` throws
+on an undefined secret, and only a successful sign-in sets a cookie — so a
+_wrong_ password gave a clean error page and the _right_ one an opaque 500. It
+reads as "valid credentials are being rejected" and sends you into the hashing
+code, nowhere near the cause. `requireSecrets` now refuses to serve anything
+without `JWT_SECRET`, with a page naming the fix. Never reintroduce a fallback
+like `env.JWT_SECRET || "default"`: signing sessions with a literal that ships
+in public source lets anyone mint one, and nothing looks wrong. Caught by
+`tests/secrets.test.ts`.
+
+**`JWT_SECRET` must be a Secret, not a _Build_ variable.** A Build variable
+exists only while the build runs and is `undefined` at runtime, while looking
+perfectly set in the dashboard. Secrets apply immediately — no redeploy.
+
+**A delete that changed nothing still reports success.** Drizzle's `update`
+resolves happily when the `where` matched no rows, so a route that ignores the
+result returns 200, HTMX swaps the card away, and the row is back on refresh.
+Use `.returning()` and act on an empty result:
+
+```ts
+const changed = await db.update(note).set({ deletedAt: now })
+  .where(and(eq(note.id, id), isNull(note.deletedAt)))
+  .returning({ id: note.id });
+if (changed.length === 0) { /* say so; do not swap it away */ }
+```
+
+**`tests/utils/fakeDb.ts` ignores `where` clauses.** It is a shape stub for
+render tests and nothing more. A passing test against it says nothing about
+ownership scoping or filtering, so never verify an isolation rule with it —
+those need real D1 (`npm run migrate:local`, then query it).
+
+**A summary seeded from the child table hides its empty members.** Building a
+per-owner view from child rows drops every owner that has none, so a freshly
+added one reads as "nothing here yet". Seed from the canonical table and left
+join the children.
+
+**Content sits under the fixed header** unless `<main>` carries the offset
+(`pt-14`). A page that wants no nav sets `bare` on its meta rather than
+fighting the padding.
+
+One habit covers most of these: **open the page in a real browser before
+calling it done** — both modes, and at 390px wide. Playwright is available.
+The tests render HTML; they never look at it.
+
 ## The split
 
 **Backend — runs in the Worker:**
@@ -66,7 +147,7 @@ These are the mistakes that cost the most time, in order:
 | `worker/schema/`     | Drizzle tables + the Zod validators derived from them          |
 | `worker/middleware/` | config, db, auth, guards, the SSR renderer                     |
 | `worker/config/`     | `app.config.ts` (branding), `auth.config.ts` (auth + RBAC)     |
-| `worker/lib/`        | crypto, `htmx-helpers`, formatting                             |
+| `worker/lib/`        | crypto, `htmx-helpers`, `dates`, formatting, `seo`             |
 
 **Frontend — two different things, don't confuse them:**
 
@@ -194,7 +275,12 @@ More in `references/backend.md` and the repo's `endpoints.md`.
 - **Money is integer cents.** Convert at the edges with `dollarsToCents` and
   `formatCents`; never do float arithmetic on money.
 - **Soft delete** — set `deletedAt`, filter with `isNull(...)`, so history
-  survives.
+  survives. Always `.returning()` and report an empty result rather than a
+  silent success (see "Traps" above).
+- **Calendar dates are `YYYY-MM-DD` strings**, handled by `worker/lib/dates.ts`
+  (`today`, `addDays`, `daysUntil`, `isOverdue`, `relativeDueLabel`). They work
+  in UTC on purpose: a due date is a day, not an instant, and doing the
+  arithmetic on a local-time `Date` moves it by one either side of midnight.
 - **Never return a raw `users` row.** `Auth.toSafeUser()` strips
   `passwordHash`, `pin` and `totpSecret`. Every exit from the auth service
   goes through it.
@@ -219,6 +305,22 @@ Locally, run those once yourself.
 To see it running: `npm run migrate:local` once, then `npm run dev` on
 :3000 (`.dev.vars` needs `JWT_SECRET`; set `RP_ID=localhost` and
 `ORIGIN=http://localhost:3000` there for passkeys).
+
+**Then actually look at it.** The tests assert that HTML comes back; they never
+assert it is legible. Before calling UI work done, open the pages you touched
+in light and dark, and at 390px wide. Playwright is installed and Chromium is
+already on disk — do not run `playwright install`:
+
+```ts
+const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+// A sandboxed session proxies HTTPS through its own CA:
+const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 390, height: 844 } });
+```
+
+Two cautions from experience. Give a boosted navigation time to finish before
+asserting on the next page — otherwise you will diagnose your own race as an
+app bug. And a stale `client.js` is served from cache without a content hash in
+its filename, so a hard reload is part of reproducing anything.
 
 ## Shipping
 

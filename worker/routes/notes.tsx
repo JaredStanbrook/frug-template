@@ -171,7 +171,26 @@ notesRoute.delete("/:id", async (c) => {
   if (!existing) return c.notFound();
   access.authorize(user, "notes", "delete", existing.userId);
 
-  await c.var.db.update(note).set({ deletedAt: new Date().toISOString() }).where(eq(note.id, id));
+  // Soft deletes report whether a row actually changed.
+  //
+  // An empty 200 is what tells HTMX to remove the element, so returning one
+  // unconditionally means a delete that matched nothing still wipes the row
+  // off the screen — and it is back on the next refresh. That is
+  // indistinguishable from the button doing nothing, and it is the shape of
+  // bug that takes an afternoon to find. `.returning()` costs nothing and
+  // makes the answer available.
+  const changed = await c.var.db
+    .update(note)
+    .set({ deletedAt: new Date().toISOString() })
+    .where(and(eq(note.id, id), isNull(note.deletedAt)))
+    .returning({ id: note.id });
+
+  if (changed.length === 0) {
+    htmxToast(c, "That note could not be deleted.", { type: "error" });
+    // 204 leaves the row on screen rather than claiming a delete that did not
+    // happen.
+    return c.body(null, 204);
+  }
 
   htmxToast(c, "Note deleted");
   // Empty body replaces the row this request targeted.

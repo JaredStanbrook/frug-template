@@ -20,11 +20,16 @@ interface ActiveToast extends ToastEvent {
 
 // 1. Map types to Lucide data attributes and Tailwind classes
 // We use <i> tags which Lucide will replace with SVGs
+//
+// Theme tokens rather than palette colours, so a toast reads correctly in both
+// modes and follows any re-theming for free. `--success` and `--warning` exist
+// in worker/index.css precisely so status UI never has to reach for the
+// palette — see the note there.
 const IconMap = {
-  success: html`<i data-lucide="circle-check" class="h-5 w-5 text-emerald-500"></i>`,
-  error: html`<i data-lucide="circle-x" class="h-5 w-5 text-red-500"></i>`,
-  warning: html`<i data-lucide="triangle-alert" class="h-5 w-5 text-amber-500"></i>`,
-  info: html`<i data-lucide="info" class="h-5 w-5 text-blue-500"></i>`,
+  success: html`<i data-lucide="circle-check" class="h-5 w-5 text-success"></i>`,
+  error: html`<i data-lucide="circle-x" class="h-5 w-5 text-destructive"></i>`,
+  warning: html`<i data-lucide="triangle-alert" class="h-5 w-5 text-warning"></i>`,
+  info: html`<i data-lucide="info" class="h-5 w-5 text-primary"></i>`,
   loader: html`<i data-lucide="loader-2" class="h-5 w-5 text-muted-foreground animate-spin"></i>`,
   close: html`<i data-lucide="x" class="h-4 w-4"></i>`,
 };
@@ -129,9 +134,13 @@ export class AppToaster extends LitElement {
                 }
               </div>
 
+              <!-- Always visible, and a flex child rather than an overlay.
+                   It used to be revealed on group-hover only, which means it
+                   did not exist on a touch device: there is no hover to reveal
+                   it, so a toast could only ever time out. -->
               <button
                 @click=${() => this.removeToast(toast.id)}
-                class="absolute right-2 top-2 rounded-lg p-1 text-muted-foreground/50 opacity-0 transition-opacity hover:text-foreground hover:bg-muted focus:opacity-100 focus:outline-none group-hover:opacity-100"
+                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Close"
               >
                 ${IconMap.close}

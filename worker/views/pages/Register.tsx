@@ -1,4 +1,14 @@
 import type { FC } from "hono/jsx";
+import {
+  AUTH_BUTTON,
+  AUTH_INPUT,
+  AUTH_TAB,
+  AuthError,
+  AuthField,
+  AuthHeading,
+  AuthNote,
+  gridColsFor,
+} from "./authParts";
 
 export interface RegisterProps {
   methods: string[];
@@ -14,7 +24,11 @@ export const Register: FC<RegisterProps> = (props) => {
   const hasPin = methods.includes("pin");
   const hasPasskey = methods.includes("passkey");
   const showRoleSelector = roles.length > 1;
-  const multipleAuthMethods = methods.length > 1;
+
+  // The number of tabs that render, which is not the number of enabled
+  // methods — see the note in Login.tsx.
+  const tabCount = [hasPassword, hasPin, hasPasskey].filter(Boolean).length;
+  const multipleAuthMethods = tabCount > 1;
 
   // Determine default tab
   const defaultTab = hasPassword ? "password" : hasPin ? "pin" : "passkey";
@@ -28,88 +42,44 @@ export const Register: FC<RegisterProps> = (props) => {
           csrf-token={csrfToken || ""}
           hx-disable="true"
         >
-          <div class="flex flex-col space-y-2 text-center">
-            <h1 class="text-3xl font-bold tracking-tight">Create Account</h1>
-            <p class="text-sm text-muted-foreground">Get started with our platform</p>
-          </div>
+          <AuthHeading title="Create Account" sub="Get started with our platform" />
 
-          {/* Error display container */}
-          <div
-            id="register-error"
-            class="hidden bg-destructive/15 text-destructive px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" x2="12" y1="8" y2="12" />
-              <line x1="12" x2="12.01" y1="16" y2="16" />
-            </svg>
-            <span id="register-error-msg"></span>
-          </div>
+          <AuthError id="register-error" />
 
           {/* Tab triggers */}
           {multipleAuthMethods && (
-            <div
-              class="grid w-full grid-cols-${methods.length} bg-muted p-1 rounded-lg"
-              slot="tabs"
-            >
+            <div class={`grid w-full ${gridColsFor(tabCount)} rounded-lg bg-muted p-1`} slot="tabs">
               {hasPassword && (
-                <button
-                  type="button"
-                  data-tab="password"
-                  class="tab-btn inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                >
+                <button type="button" data-tab="password" class={AUTH_TAB}>
                   Password
                 </button>
               )}
               {hasPin && (
-                <button
-                  type="button"
-                  data-tab="pin"
-                  class="tab-btn inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                >
+                <button type="button" data-tab="pin" class={AUTH_TAB}>
                   PIN
                 </button>
               )}
               {hasPasskey && (
-                <button
-                  type="button"
-                  data-tab="passkey"
-                  class="tab-btn inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                >
+                <button type="button" data-tab="passkey" class={AUTH_TAB}>
                   Passkey
                 </button>
               )}
             </div>
           )}
 
-          {/* Shared role selector */}
+          {/* Shared role selector. The label carries `for` so that tapping it
+              focuses the select and a screen reader announces the two together
+              — it used to be a bare <label> beside an id-less <select>. */}
           {showRoleSelector && (
-            <div class="space-y-2">
-              <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                I want to join as a...
-              </label>
-              <select
-                name="role"
-                form="register-form"
-                class="flex h-10 w-full items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              >
+            <AuthField id="role" label="I want to join as a...">
+              <select id="role" name="role" form="register-form" class={AUTH_INPUT}>
                 {roles.map((role) => (
                   <option value={role} selected={role === defaultRole} class="capitalize">
                     {role.charAt(0).toUpperCase() + role.slice(1)}
                   </option>
                 ))}
               </select>
-            </div>
+            </AuthField>
           )}
           {!showRoleSelector && (
             <input type="hidden" name="role" value={defaultRole} form="register-form" />
@@ -121,54 +91,42 @@ export const Register: FC<RegisterProps> = (props) => {
               <form id="register-form" class="grid gap-4">
                 {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
 
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium leading-none" for="email">
-                    Email Address
-                  </label>
+                <AuthField id="email" label="Email Address">
                   <input
                     id="email"
                     name="email"
                     type="email"
                     required
-                    class="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    class={AUTH_INPUT}
                     placeholder="you@example.com"
                   />
-                </div>
+                </AuthField>
 
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium leading-none" for="password">
-                    Password
-                  </label>
+                <AuthField id="password" label="Password">
                   <input
                     id="password"
                     name="password"
                     type="password"
                     required
                     minlength={8}
-                    class="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    class={AUTH_INPUT}
                     placeholder="••••••••"
                   />
-                </div>
+                </AuthField>
 
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium leading-none" for="confirmPassword">
-                    Confirm Password
-                  </label>
+                <AuthField id="confirmPassword" label="Confirm Password">
                   <input
                     id="confirmPassword"
                     name="confirmPassword"
                     type="password"
                     required
                     minlength={8}
-                    class="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    class={AUTH_INPUT}
                     placeholder="••••••••"
                   />
-                </div>
+                </AuthField>
 
-                <button
-                  type="submit"
-                  class="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full"
-                >
+                <button type="submit" class={AUTH_BUTTON}>
                   Create Account
                 </button>
               </form>
@@ -181,24 +139,18 @@ export const Register: FC<RegisterProps> = (props) => {
               <form id="pin-form" class="grid gap-4">
                 {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
 
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium leading-none" for="pin-email">
-                    Email Address
-                  </label>
+                <AuthField id="pin-email" label="Email Address">
                   <input
                     id="pin-email"
                     name="email"
                     type="email"
                     required
-                    class="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    class={AUTH_INPUT}
                     placeholder="you@example.com"
                   />
-                </div>
+                </AuthField>
 
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium leading-none" for="pin">
-                    PIN (4-6 digits)
-                  </label>
+                <AuthField id="pin" label="PIN (4-6 digits)">
                   <input
                     id="pin"
                     name="pin"
@@ -207,15 +159,12 @@ export const Register: FC<RegisterProps> = (props) => {
                     inputmode="numeric"
                     pattern="\d{4,6}"
                     maxlength={6}
-                    class="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    class={AUTH_INPUT}
                     placeholder="••••"
                   />
-                </div>
+                </AuthField>
 
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium leading-none" for="confirmPin">
-                    Confirm PIN
-                  </label>
+                <AuthField id="confirmPin" label="Confirm PIN">
                   <input
                     id="confirmPin"
                     name="confirmPin"
@@ -224,15 +173,12 @@ export const Register: FC<RegisterProps> = (props) => {
                     inputmode="numeric"
                     pattern="\d{4,6}"
                     maxlength={6}
-                    class="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    class={AUTH_INPUT}
                     placeholder="••••"
                   />
-                </div>
+                </AuthField>
 
-                <button
-                  type="submit"
-                  class="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full"
-                >
+                <button type="submit" class={AUTH_BUTTON}>
                   Create Account
                 </button>
               </form>
@@ -242,61 +188,36 @@ export const Register: FC<RegisterProps> = (props) => {
           {/* Passkey tab content */}
           {hasPasskey && (
             <div data-content="passkey" class="space-y-4 hidden">
-              <div class="bg-muted p-4 rounded-lg text-sm text-muted-foreground mb-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="inline mr-2"
-                >
-                  <circle cx="7.5" cy="15.5" r="5.5" />
-                  <path d="m21 2-9.6 9.6" />
-                  <path d="m15.5 7.5 3 3L22 7l-3-3" />
-                </svg>
+              <AuthNote icon="key-round">
                 Passkeys verify your identity using your fingerprint, face, or device PIN.
-              </div>
+              </AuthNote>
 
               <form id="passkey-form" class="grid gap-4">
                 {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
 
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium leading-none" for="pk-email">
-                    Email Address
-                  </label>
+                <AuthField id="pk-email" label="Email Address">
                   <input
                     id="pk-email"
                     name="email"
                     type="email"
                     required
-                    class="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    class={AUTH_INPUT}
                     placeholder="you@example.com"
                   />
-                </div>
+                </AuthField>
 
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium leading-none" for="pk-name">
-                    Display Name
-                  </label>
+                <AuthField id="pk-name" label="Display Name">
                   <input
                     id="pk-name"
                     name="name"
                     type="text"
                     required
-                    class="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    class={AUTH_INPUT}
                     placeholder="Your Name"
                   />
-                </div>
+                </AuthField>
 
-                <button
-                  type="submit"
-                  class="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full"
-                >
+                <button type="submit" class={AUTH_BUTTON}>
                   Register with Passkey
                 </button>
               </form>

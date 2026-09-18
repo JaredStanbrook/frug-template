@@ -142,7 +142,7 @@ export class TotpSetupButton extends LitElement {
               <button
                 @click=${this.handleDisable}
                 ?disabled=${this.isLoading}
-                class="inline-flex items-center justify-center rounded-lg text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 disabled:opacity-50"
+                class="inline-flex items-center justify-center rounded-lg text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 px-4 disabled:opacity-50"
               >
                 ${this.isLoading ? "Disabling..." : "Disable"}
               </button>
@@ -151,7 +151,7 @@ export class TotpSetupButton extends LitElement {
               <button
                 @click=${this.handleEnable}
                 ?disabled=${this.isLoading}
-                class="inline-flex items-center justify-center rounded-lg text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 disabled:opacity-50"
+                class="inline-flex items-center justify-center rounded-lg text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 px-4 disabled:opacity-50"
               >
                 ${this.isLoading ? "Enabling..." : "Enable"}
               </button>
@@ -192,14 +192,14 @@ export class TotpSetupButton extends LitElement {
                 ? html`
                     <button
                       @click=${() => (this.isModalOpen = false)}
-                      class="inline-flex items-center justify-center rounded-lg text-sm font-medium border border-input bg-background hover:bg-accent h-9 px-4 py-2"
+                      class="inline-flex items-center justify-center rounded-lg text-sm font-medium border border-input bg-background hover:bg-accent h-11 px-4"
                     >
                       Cancel
                     </button>
                     <button
                       @click=${this.handleVerify}
                       ?disabled=${this.isLoading || this.code.length !== 6}
-                      class="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 disabled:opacity-50"
+                      class="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-4 disabled:opacity-50"
                     >
                       ${this.isLoading ? "Verifying..." : "Verify & Activate"}
                     </button>
@@ -211,7 +211,7 @@ export class TotpSetupButton extends LitElement {
                 ? html`
                     <button
                       @click=${() => (this.isModalOpen = false)}
-                      class="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2"
+                      class="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-4"
                     >
                       Done
                     </button>
@@ -272,12 +272,12 @@ export class TotpSetupButton extends LitElement {
               <input
                 readonly
                 .value="${this.secretData?.secret || ""}"
-                class="flex h-9 w-full rounded-lg border border-input bg-muted px-3 py-1 text-xs font-mono shadow-sm"
+                class="flex h-11 w-full rounded-lg border border-input bg-muted px-3 py-1 text-xs font-mono shadow-sm"
               />
             </div>
             <button
               @click=${this.copyToClipboard}
-              class="inline-flex items-center justify-center rounded-lg border border-input bg-background h-9 w-9 hover:bg-accent text-muted-foreground"
+              class="inline-flex items-center justify-center rounded-lg border border-input bg-background h-11 w-11 hover:bg-accent text-muted-foreground"
             >
               ${
                 this.isCopied
@@ -319,7 +319,7 @@ export class TotpSetupButton extends LitElement {
             maxlength="6"
             inputmode="numeric"
             placeholder="000 000"
-            class="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-center text-lg tracking-[0.5em] font-mono shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            class="flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-center text-lg tracking-[0.5em] font-mono shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
       </div>

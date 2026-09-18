@@ -26,7 +26,7 @@ const menuConfig: Record<string, Array<{ to: string; name: string }>> = {
 export const ThemeToggle = () => html`
   <button
     type="button"
-    class="theme-toggle-btn inline-flex h-10 w-10 items-center justify-center rounded-lg border border-input bg-transparent hover:bg-accent hover:text-accent-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+    class="theme-toggle-btn inline-flex h-11 w-11 items-center justify-center rounded-lg border border-input bg-transparent hover:bg-accent hover:text-accent-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
     aria-label="Toggle theme"
   >
     <i data-theme-icon="light" data-lucide="sun" class="hidden w-5 h-5"></i>
@@ -109,7 +109,7 @@ const UserMenu = ({ user }: { user: PropsUser }) => html`
   <div class="relative">
     <details class="group relative">
       <summary
-        class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-primary/10 hover:bg-primary/20 transition-colors list-none marker:hidden [&::-webkit-details-marker]:hidden border border-transparent focus:border-ring ring-offset-background"
+        class="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-primary/10 hover:bg-primary/20 transition-colors list-none marker:hidden [&::-webkit-details-marker]:hidden border border-transparent focus:border-ring ring-offset-background"
       >
         <span class="font-bold text-sm text-primary"
           >${(user.email || "??").substring(0, 2).toUpperCase()}</span
@@ -187,7 +187,7 @@ export const NavBar = ({ appName, user, currentPath }: NavBarProps) => {
     >
       <div class="flex h-14 items-center justify-between px-4">
         <div class="flex items-center gap-6">
-          <a href="/" class="flex items-center gap-2 font-bold text-lg mr-4">
+          <a href="/" class="flex h-11 items-center gap-2 font-bold text-lg mr-4">
             <div class="h-6 w-6 bg-primary rounded-md"></div>
             ${appName}
           </a>
@@ -223,7 +223,7 @@ export const NavBar = ({ appName, user, currentPath }: NavBarProps) => {
                       >
                       <a
                         href="/register"
-                        class="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 transition-colors"
+                        class="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-4 transition-colors"
                         >Get Started</a
                       >
                     </div>
@@ -234,7 +234,7 @@ export const NavBar = ({ appName, user, currentPath }: NavBarProps) => {
 
           <button
             id="mobile-menu-toggle"
-            class="lg:hidden inline-flex items-center justify-center p-2 rounded-md text-foreground hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+            class="lg:hidden inline-flex h-11 w-11 items-center justify-center rounded-md text-foreground hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Open menu"
           >
             <i data-lucide="menu" class="h-6 w-6"></i>

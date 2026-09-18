@@ -32,7 +32,7 @@ logsRoute.get("/", async (c) => {
   return htmxResponse(
     c,
     "System Logs",
-    <div class="max-w-5xl mx-auto space-y-8 p-8 pt-20 animate-in fade-in duration-500">
+    <div class="max-w-5xl mx-auto space-y-8 p-4 py-8 animate-in fade-in duration-500">
       <div class="space-y-2">
         <h2 class="text-3xl font-bold tracking-tight">System Logs</h2>
         <p class="text-muted-foreground">
