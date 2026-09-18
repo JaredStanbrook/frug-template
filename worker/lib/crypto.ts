@@ -24,91 +24,121 @@ export function randomBase64Url(byteLength: number = 32): string {
 }
 
 /**
- * Hash a password using SHA-256 with salt
- * Format: salt.hash (both base64url encoded)
+ * How many PBKDF2 rounds a new password hash gets.
+ *
+ * OWASP's current advice for PBKDF2-SHA256 is 600,000. This template runs on
+ * Workers, where every round is CPU charged to the request and a sign-in has
+ * to finish inside the plan's CPU budget — 600,000 rounds is roughly a quarter
+ * of a second of pure compute per login. 210,000 is the compromise: a little
+ * over twice the work this used to do, comfortably inside that budget.
+ *
+ * It is not a permanent choice, which is the point of the format below. The
+ * stored hash records the cost it was made with, `needsRehash` reports when one
+ * is behind, and the auth service re-hashes on the next successful sign-in — so
+ * raising this number upgrades every active account on its own, with no reset
+ * emails and no downtime. Set PASSWORD_HASH_ITERATIONS to override it.
  */
-export async function hashPassword(password: string): Promise<string> {
-  // Generate random salt
+export const DEFAULT_PBKDF2_ITERATIONS = 210_000;
+
+/** What the legacy `salt.hash` format was always hashed with. */
+const LEGACY_ITERATIONS = 100_000;
+
+const toBase64Url = (bytes: Uint8Array) =>
+  btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+
+const fromBase64Url = (value: string) => {
+  const binary = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+};
+
+const derive = async (password: string, salt: Uint8Array, iterations: number) => {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+    key,
+    256,
+  );
+  return toBase64Url(new Uint8Array(bits));
+};
+
+/**
+ * Parse either hash format.
+ *
+ * Current: `pbkdf2-sha256$<iterations>$<salt>$<hash>`
+ * Legacy:  `<salt>.<hash>`, which was always 100,000 rounds.
+ *
+ * Recording the parameters next to the hash is what makes the cost changeable
+ * at all. With the number living only in the code, the day you raise it every
+ * existing password stops verifying — which is why, in practice, it never gets
+ * raised.
+ */
+const parseHash = (stored: string) => {
+  if (stored.startsWith("pbkdf2-sha256$")) {
+    const [, iterations, salt, hash] = stored.split("$");
+    const rounds = Number(iterations);
+    if (!salt || !hash || !Number.isInteger(rounds) || rounds <= 0) return null;
+    return { iterations: rounds, salt, hash };
+  }
+
+  const [salt, hash] = stored.split(".");
+  if (!salt || !hash) return null;
+  return { iterations: LEGACY_ITERATIONS, salt, hash };
+};
+
+/**
+ * Hash a password with PBKDF2-SHA256 and a random 16-byte salt.
+ */
+export async function hashPassword(
+  password: string,
+  iterations: number = DEFAULT_PBKDF2_ITERATIONS,
+): Promise<string> {
   const salt = new Uint8Array(16);
   crypto.getRandomValues(salt);
 
-  // Derive key using PBKDF2
-  const encoder = new TextEncoder();
-  const passwordBuffer = encoder.encode(password);
-
-  const key = await crypto.subtle.importKey("raw", passwordBuffer, { name: "PBKDF2" }, false, [
-    "deriveBits",
-  ]);
-
-  const derivedBits = await crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      salt: salt,
-      iterations: 100000, // Adjust based on your security requirements
-      hash: "SHA-256",
-    },
-    key,
-    256, // 32 bytes
-  );
-
-  // Convert to base64url
-  const saltB64 = btoa(String.fromCharCode(...salt))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-
-  const hashB64 = btoa(String.fromCharCode(...new Uint8Array(derivedBits)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-
-  return `${saltB64}.${hashB64}`;
+  const hash = await derive(password, salt, iterations);
+  return `pbkdf2-sha256$${iterations}$${toBase64Url(salt)}$${hash}`;
 }
 
 /**
- * Verify a password against a hash
+ * Verify a password against a stored hash, in whichever format it was written.
  */
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   try {
-    const [saltB64, expectedHashB64] = hash.split(".");
-    if (!saltB64 || !expectedHashB64) return false;
+    const parsed = parseHash(stored);
+    if (!parsed) return false;
 
-    // Decode salt from base64url
-    const saltStr = atob(saltB64.replace(/-/g, "+").replace(/_/g, "/"));
-    const salt = new Uint8Array(saltStr.length);
-    for (let i = 0; i < saltStr.length; i++) {
-      salt[i] = saltStr.charCodeAt(i);
-    }
-
-    // Derive key with same parameters
-    const encoder = new TextEncoder();
-    const passwordBuffer = encoder.encode(password);
-
-    const key = await crypto.subtle.importKey("raw", passwordBuffer, { name: "PBKDF2" }, false, [
-      "deriveBits",
-    ]);
-
-    const derivedBits = await crypto.subtle.deriveBits(
-      {
-        name: "PBKDF2",
-        salt: salt,
-        iterations: 100000,
-        hash: "SHA-256",
-      },
-      key,
-      256,
-    );
-
-    const actualHashB64 = btoa(String.fromCharCode(...new Uint8Array(derivedBits)))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=/g, "");
-
-    // Constant-time comparison
-    return constantTimeEqual(actualHashB64, expectedHashB64);
+    const actual = await derive(password, fromBase64Url(parsed.salt), parsed.iterations);
+    return constantTimeEqual(actual, parsed.hash);
   } catch {
     return false;
   }
+}
+
+/**
+ * Whether this hash was made with less work than we now do.
+ *
+ * Callers re-hash on a successful sign-in, when the plaintext is in hand and
+ * the upgrade costs nothing. The alternative is asking every user to reset a
+ * password that was never actually compromised.
+ */
+export function needsRehash(
+  stored: string,
+  iterations: number = DEFAULT_PBKDF2_ITERATIONS,
+): boolean {
+  const parsed = parseHash(stored);
+  if (!parsed) return false;
+  return parsed.iterations < iterations;
 }
 
 /**

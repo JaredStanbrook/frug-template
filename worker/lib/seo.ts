@@ -34,6 +34,15 @@ export interface PageMeta {
   canonical?: string;
   /** `website` for landing pages, `article` for a single piece of content. */
   type?: "website" | "article";
+  /**
+   * Render without the site nav.
+   *
+   * For a page that is public but does not belong to the signed-in app — a
+   * share link, an unlisted per-recipient page, a print view. Offering "Login"
+   * and "Get Started" to someone who has no account and cannot get one is
+   * noise at best; pair it with `noindex` when the URL itself is the secret.
+   */
+  bare?: boolean;
 }
 
 export interface ResolvedMeta {
@@ -45,6 +54,8 @@ export interface ResolvedMeta {
   type: "website" | "article";
   siteName: string;
   locale: string;
+  /** Layout rather than SEO, but it rides along so Layout has one props bag. */
+  bare: boolean;
 }
 
 /**
@@ -84,6 +95,7 @@ export function resolveMeta(meta: PageMeta, app: AppConfig, url: URL): ResolvedM
     type: meta.type ?? "website",
     siteName: app.name,
     locale: app.locale,
+    bare: meta.bare ?? false,
   };
 }
 

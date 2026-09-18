@@ -125,14 +125,14 @@ export class TotpVerifyModal extends LitElement {
             <button
               @click=${this.closeModal}
               ?disabled=${this.isVerifying}
-              class="inline-flex items-center justify-center rounded-lg text-sm font-medium border border-input bg-background hover:bg-accent h-9 px-4 py-2 disabled:opacity-50"
+              class="inline-flex items-center justify-center rounded-lg text-sm font-medium border border-input bg-background hover:bg-accent h-11 px-4 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               @click=${this.handleVerify}
               ?disabled=${this.isVerifying || this.code.length !== 6}
-              class="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 disabled:opacity-50"
+              class="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-4 disabled:opacity-50"
             >
               ${this.isVerifying ? "Verifying..." : "Verify"}
             </button>

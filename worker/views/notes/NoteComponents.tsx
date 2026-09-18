@@ -118,14 +118,14 @@ const EmptyState = ({ query, pinnedOnly }: { query: string; pinnedOnly: boolean 
       {filtered ? (
         <a
           href="/notes"
-          class="mt-1 inline-flex items-center gap-2 rounded-lg border border-input px-4 h-9 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+          class="mt-1 inline-flex items-center gap-2 rounded-lg border border-input px-4 h-11 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
         >
           <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i> Clear filters
         </a>
       ) : (
         <a
           href="/notes/new"
-          class="mt-1 inline-flex items-center gap-2 rounded-lg bg-primary px-4 h-9 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          class="mt-1 inline-flex items-center gap-2 rounded-lg bg-primary px-4 h-11 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
         >
           <i data-lucide="plus" class="h-3.5 w-3.5"></i> New note
         </a>
@@ -189,12 +189,12 @@ const Toolbar = ({
         hx-swap="outerHTML"
         hx-include="closest form"
         hx-push-url="true"
-        class="flex h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        class="flex h-11 w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       />
     </div>
 
     <label
-      class={`inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors ${
+      class={`inline-flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors ${
         pinnedOnly
           ? "border-primary/30 bg-primary/10 text-primary"
           : "border-input hover:bg-accent hover:text-accent-foreground"
@@ -244,7 +244,7 @@ export const NoteListPage = ({
       {canCreate ? (
         <a
           href="/notes/new"
-          class="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 h-10 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          class="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 h-11 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
         >
           <i data-lucide="plus" class="h-4 w-4"></i> New note
         </a>
@@ -277,7 +277,7 @@ export const NoteFormPage = ({ note, errors }: NoteFormProps) => {
         <a
           href="/notes"
           aria-label="Back to notes"
-          class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-input hover:bg-accent hover:text-accent-foreground transition-colors"
+          class="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-input hover:bg-accent hover:text-accent-foreground transition-colors"
         >
           <i data-lucide="arrow-left" class="h-4 w-4"></i>
         </a>
@@ -301,7 +301,7 @@ export const NoteFormPage = ({ note, errors }: NoteFormProps) => {
             maxlength={120}
             value={note?.title ?? ""}
             placeholder="What is this about?"
-            class="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            class="flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
           {errors?.title ? <p class="text-sm text-destructive">{errors.title}</p> : null}
         </div>
@@ -327,9 +327,15 @@ export const NoteFormPage = ({ note, errors }: NoteFormProps) => {
           <p class="text-sm text-muted-foreground">
             Follows the theme, so it stays readable in light and dark.
           </p>
-          <div class="flex flex-wrap items-center gap-3 pt-1">
+          {/* The swatch stays 32px because that is the design; the label
+              around it is 44px so there is something big enough to hit. Sizing
+              the target and sizing the dot are separate decisions. */}
+          <div class="flex flex-wrap items-center gap-1 pt-1">
             {NOTE_ACCENTS.map((key) => (
-              <label class="cursor-pointer" title={ACCENTS[key].label}>
+              <label
+                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center"
+                title={ACCENTS[key].label}
+              >
                 <input
                   type="radio"
                   name="accent"
@@ -347,7 +353,9 @@ export const NoteFormPage = ({ note, errors }: NoteFormProps) => {
           </div>
         </fieldset>
 
-        <label class="flex items-center gap-2 text-sm font-medium">
+        {/* The box stays a native 16px checkbox; the label row is 44px, and
+            since the input is inside the label the whole row is the target. */}
+        <label class="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium">
           <input
             type="checkbox"
             name="pinned"
@@ -360,13 +368,13 @@ export const NoteFormPage = ({ note, errors }: NoteFormProps) => {
         <div class="flex items-center gap-3 pt-2">
           <button
             type="submit"
-            class="inline-flex items-center justify-center rounded-lg bg-primary px-5 h-10 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            class="inline-flex items-center justify-center rounded-lg bg-primary px-5 h-11 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             {isEdit ? "Save changes" : "Create note"}
           </button>
           <a
             href="/notes"
-            class="inline-flex items-center justify-center rounded-lg border border-input px-5 h-10 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+            class="inline-flex items-center justify-center rounded-lg border border-input px-5 h-11 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
           >
             Cancel
           </a>

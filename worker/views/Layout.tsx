@@ -69,13 +69,26 @@ export const Layout: FC<LayoutProps> = (props) => {
       <body class="bg-background text-foreground antialiased min-h-screen font-sans flex flex-col">
         <theme-provider defaultTheme="system"></theme-provider>
 
-        ${NavBar({
-          appName: props.app.name,
-          user: props.user,
-          currentPath: props.currentPath,
-        })}
+        ${
+          props.meta.bare
+            ? html`<header class="border-b">
+                <div class="flex h-14 items-center px-4 font-bold text-lg">${props.app.name}</div>
+              </header>`
+            : NavBar({
+                appName: props.app.name,
+                user: props.user,
+                currentPath: props.currentPath,
+              })
+        }
 
-        <main hx-boost="true" id="main-content" class="relative flex-grow w-full">
+        <!-- pt-14 clears the FIXED NavBar (h-14). Without it the top of every
+             page renders underneath the bar. A bare page has no NavBar, so it
+             needs no offset. -->
+        <main
+          hx-boost="true"
+          id="main-content"
+          class="relative flex-grow w-full ${props.meta.bare ? "" : "pt-14"}"
+        >
           ${props.children}
         </main>
         <div id="modal-container"></div>

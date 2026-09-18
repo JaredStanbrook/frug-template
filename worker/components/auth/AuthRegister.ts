@@ -7,6 +7,8 @@ import { startRegistration } from "@simplewebauthn/browser";
 export class AuthRegister extends LitElement {
   @property({ type: String, attribute: "default-tab" }) defaultTab = "password";
   @property({ type: String, attribute: "csrf-token" }) csrfToken = "";
+  /** Mirrors PASSWORD_MIN_LENGTH so the browser check matches the server's. */
+  @property({ type: Number, attribute: "min-password-length" }) minPasswordLength = 8;
 
   private activeTab = "";
   private isSubmitting = false;
@@ -126,8 +128,8 @@ export class AuthRegister extends LitElement {
       return;
     }
 
-    if (password.length < 8) {
-      this.showError("Password must be at least 8 characters");
+    if (password.length < this.minPasswordLength) {
+      this.showError(`Password must be at least ${this.minPasswordLength} characters`);
       return;
     }
 

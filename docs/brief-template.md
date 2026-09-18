@@ -25,6 +25,12 @@ Every kind of person with an account, with a short lowercase name for each
 
 How do people get accounts? (open sign-up / invite-only / an admin creates them)
 
+Are you only running this, or also one of the people in it? If anything gets
+divided, totalled, counted or ranked, name everyone included. "Split between
+my three roommates" and "split between my three roommates and me" produce
+different schemas, and the second is easy to leave unsaid because it is
+obvious from where you are standing.
+
 ## Data model
 
 The main objects. For each, list the fields, say who owns it, and name its

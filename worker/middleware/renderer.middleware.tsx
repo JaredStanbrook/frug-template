@@ -20,14 +20,19 @@ declare module "hono" {
  * the page's metadata) is gathered here once rather than threaded through each
  * route.
  */
-export const globalRenderer = jsxRenderer(async ({ children, ...pageMeta }, c) => {
-  const app = c.var.app;
-  const user = c.var.auth?.user || null;
-  const meta = resolveMeta(pageMeta as PageMeta, app, new URL(c.req.url));
+export const globalRenderer = jsxRenderer(
+  async ({ children, ...pageMeta }, c) => {
+    const app = c.var.app;
+    const user = c.var.auth?.user || null;
+    const meta = resolveMeta(pageMeta as PageMeta, app, new URL(c.req.url));
 
-  return (
-    <Layout meta={meta} app={app} user={user} currentPath={c.req.path}>
-      {children}
-    </Layout>
-  );
-});
+    return (
+      <Layout meta={meta} app={app} user={user} currentPath={c.req.path}>
+        {children}
+      </Layout>
+    );
+  },
+  // Layout emits its own doctype. jsxRenderer prepends one unless told not to,
+  // which otherwise puts two at the top of every page.
+  { docType: false },
+);

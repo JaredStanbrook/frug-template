@@ -176,12 +176,13 @@ for changes, let it push, watch the build.
 
 Most vars are safe defaults. These break things quietly:
 
-| Var             | Must be                            | Symptom when wrong                                             |
-| --------------- | ---------------------------------- | -------------------------------------------------------------- |
-| `RP_ID`         | Bare hostname, no scheme or port   | Passkeys fail with an opaque browser error                     |
-| `ORIGIN`        | Full origin with `https://`        | Passkeys fail; CSRF rejects your own forms                     |
-| `JWT_EXPIRY`    | **Seconds** (`86400` = 24h)        | A millisecond value (`86400000`) gives a ~2.7 **year** session |
-| `ROLES_DEFAULT` | A role listed in `ROLES_AVAILABLE` | Registration throws at runtime                                 |
+| Var                | Must be                             | Symptom when wrong                                                                                                           |
+| ------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `RP_ID`            | Bare hostname, no scheme or port    | Passkeys fail with an opaque browser error                                                                                   |
+| `ORIGIN`           | Full origin with `https://`         | Passkeys fail; CSRF rejects your own forms                                                                                   |
+| `JWT_EXPIRY`       | **Seconds** (`86400` = 24h)         | A millisecond value (`86400000`) gives a ~2.7 **year** session                                                               |
+| `SESSION_DURATION` | **Milliseconds** (`86400000` = 24h) | A seconds value (`86400`) expires every session ~86s after sign-in. `validateAuthConfig` now refuses anything under a minute |
+| `ROLES_DEFAULT`    | A role listed in `ROLES_AVAILABLE`  | Registration throws at runtime                                                                                               |
 
 `SESSION_DURATION` and `LOCKOUT_DURATION` are milliseconds; `JWT_EXPIRY` is
 seconds. Nothing can validate a plausible-looking number, so check it by hand.
@@ -190,15 +191,15 @@ seconds. Nothing can validate a plausible-looking number, so check it by hand.
 
 Read the build log in **Settings → Builds** first; it names the failing step.
 
-| Symptom                                                                  | Cause                                                                                                                                                                                                 |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `JWT_SECRET` undefined at runtime, 500s on every page                    | Secret not set, or set as a Build variable instead of a Secret                                                                                                                                        |
-| Migration step fails with an auth error                                  | Rare — the build has your account's credentials. Fall back to the manual migration below                                                                                                              |
-| `database_id` invalid                                                    | The id in `wrangler.jsonc` does not match the dashboard                                                                                                                                               |
-| Passkey registration fails, everything else works                        | `RP_ID` / `ORIGIN` mismatch (Step 6)                                                                                                                                                                  |
-| Build cannot find `worker-configuration.d.ts`                            | Should not happen — `npm run build` regenerates it via `wrangler types`                                                                                                                               |
-| `npm ci` fails with `Missing: <pkg> from lock file`                      | `package-lock.json` was regenerated with a plain `npm install`, which drops optional binaries for other platforms. Ask Claude to rerun `npm install --package-lock-only` and push                     |
-| Pages load but sign-up fails with "The database has not been set up yet" | The migrate step never ran. Check the Deploy command is `npm run deploy`, not the default `npx wrangler deploy`, then redeploy. Or apply the schema by hand — see the manual migration fallback below |
+| Symptom                                                                  | Cause                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every page returns a "Not configured" 503                                | `JWT_SECRET` is not set at runtime, or was set as a _Build_ variable rather than a Secret — a Build variable exists only during the build. Fix it in Variables and Secrets; secrets apply immediately, with no redeploy |
+| Migration step fails with an auth error                                  | Rare — the build has your account's credentials. Fall back to the manual migration below                                                                                                                                |
+| `database_id` invalid                                                    | The id in `wrangler.jsonc` does not match the dashboard                                                                                                                                                                 |
+| Passkey registration fails, everything else works                        | `RP_ID` / `ORIGIN` mismatch (Step 6)                                                                                                                                                                                    |
+| Build cannot find `worker-configuration.d.ts`                            | Should not happen — `npm run build` regenerates it via `wrangler types`                                                                                                                                                 |
+| `npm ci` fails with `Missing: <pkg> from lock file`                      | `package-lock.json` was regenerated with a plain `npm install`, which drops optional binaries for other platforms. Ask Claude to rerun `npm install --package-lock-only` and push                                       |
+| Pages load but sign-up fails with "The database has not been set up yet" | The migrate step never ran. Check the Deploy command is `npm run deploy`, not the default `npx wrangler deploy`, then redeploy. Or apply the schema by hand — see the manual migration fallback below                   |
 
 **Manual migration fallback.** If the migrate step ever fails, you can apply
 the schema by hand with no CLI: open **D1 → your database → Console**, paste

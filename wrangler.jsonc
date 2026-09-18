@@ -168,11 +168,25 @@
     "ORIGIN": "https://change-me.example.com",
 
     // --- PASSWORD CONFIG ---
-    "PASSWORD_MIN_LENGTH": "8",
-    "PASSWORD_REQUIRE_UPPERCASE": "true",
-    "PASSWORD_REQUIRE_LOWERCASE": "true",
-    "PASSWORD_REQUIRE_NUMBERS": "true",
-    "PASSWORD_REQUIRE_SPECIAL": "true",
+    // These are enforced on registration, password change and reset. They used
+    // to be read into config and checked nowhere, so the values here made no
+    // difference to anything.
+    //
+    // Length over composition, per NIST SP 800-63B. Requiring an uppercase, a
+    // digit and a symbol adds little entropy and reliably produces
+    // "Password1!", while pushing people towards reuse and sticky notes; a
+    // longer minimum is worth more than all four rules together. Set any of
+    // them to "true" if a compliance checklist demands it.
+    "PASSWORD_MIN_LENGTH": "12",
+    "PASSWORD_REQUIRE_UPPERCASE": "false",
+    "PASSWORD_REQUIRE_LOWERCASE": "false",
+    "PASSWORD_REQUIRE_NUMBERS": "false",
+    "PASSWORD_REQUIRE_SPECIAL": "false",
+
+    // PBKDF2 rounds for new password hashes. Raising this is safe and
+    // self-applying: the cost is stored with each hash, and accounts are
+    // re-hashed as their owners next sign in. See worker/lib/crypto.ts.
+    "PASSWORD_HASH_ITERATIONS": "210000",
 
     // --- PIN CONFIG ---
     "PIN_LENGTH": "6",

@@ -57,12 +57,18 @@ software terms.
 >    to. Push me until each object has a clear owner.
 > 4. **What people do** — the handful of actions that matter most, as short
 >    sentences: "a coach adds a player to a squad", "a parent pays an invoice".
-> 5. **Screens** — the pages, what each shows, and what a user does on each.
+> 5. **Where the operator sits** — am I only running this app, or am I also one
+>    of the people in it? If the app divides, totals, counts or ranks anything,
+>    ask me explicitly who is included, and name us: "split three ways between
+>    Ethan, Karys and Joel" and "split four ways between them and me" are
+>    different apps, and I am likely to say the first while meaning the second.
+>    Do not settle for "everyone" or "the participants" — list them.
+> 6. **Screens** — the pages, what each shows, and what a user does on each.
 >    What the first screen after signing in should be.
-> 6. **Public vs private** — anything a signed-out visitor can see.
-> 7. **Files** — whether users upload anything, what kind, roughly how big.
-> 8. **Look and feel** — three adjectives, and any site whose feel I like.
-> 9. **Out of scope** — what this version deliberately does not do.
+> 7. **Public vs private** — anything a signed-out visitor can see.
+> 8. **Files** — whether users upload anything, what kind, roughly how big.
+> 9. **Look and feel** — three adjectives, and any site whose feel I like.
+> 10. **Out of scope** — what this version deliberately does not do.
 >
 > When you have enough, output the brief under exactly these headings, and
 > nothing else:
@@ -130,6 +136,11 @@ configures the repo and builds.
   description.
 - **Be concrete about roles.** "Admins can delete anything, members only their
   own posts" turns directly into permission strings.
+- **Say where you sit.** The person running an app is often also one of the
+  people in it, and it is so obvious from the inside that it goes unsaid. If
+  anything gets divided, totalled or counted, spell out who is counted — a
+  bill "split between my three roommates" turned out to mean four ways, which
+  was a schema change rather than a copy change.
 - **Say what it does not do.** It stops scope drifting mid-build.
 - **Describe feel, not pixels.** "Calm, dense, spreadsheet-like" gives more to
   work with than a hex code, and the theme system handles colour.

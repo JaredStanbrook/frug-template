@@ -1,5 +1,5 @@
 // worker/services/auth.service.ts
-import { eq, and, or, gt, desc } from "drizzle-orm";
+import { eq, and, or, gt, desc, isNull } from "drizzle-orm";
 import { verify } from "hono/jwt";
 import { z } from "zod";
 import {
@@ -13,7 +13,7 @@ import {
 } from "../schema/auth.schema";
 import type { RegisterUser, InsertUser, InsertAuthLog, SafeUser } from "../schema/auth.schema";
 import type { RegistrationResponseJSON, AuthenticationResponseJSON } from "@simplewebauthn/types";
-import { hashPassword, verifyPassword, randomString } from "../lib/crypto";
+import { hashPassword, verifyPassword, randomString, needsRehash, hashSecret } from "../lib/crypto";
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -24,6 +24,8 @@ import type { AuthenticatorTransportFuture } from "@simplewebauthn/types";
 import { isoBase64URL, isoUint8Array } from "@simplewebauthn/server/helpers";
 import type { AuthConfig } from "../config/auth.config";
 import { userRoles } from "../schema/roles.schema";
+import { sessions } from "../schema/session.schema";
+import type { SessionSummary } from "../schema/session.schema";
 import { RoleService } from "./roles.service";
 import type { Context } from "hono";
 import { sign } from "hono/jwt";
@@ -37,8 +39,38 @@ import * as OTPAuth from "otpauth";
  */
 const JWT_ALG = "HS256" as const;
 
+/** SHA-256 of a one-time token, hex, for storing reset codes at rest. */
+const hashToken = async (token: string) =>
+  Array.from(await hashSecret(token))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+/**
+ * Session timestamps: ISO-8601, with milliseconds.
+ *
+ * Deliberately not SQLite's `current_timestamp`, which resolves to the second.
+ * Sessions opened within the same second would then sort arbitrarily against
+ * each other, and `enforceSessionLimit` decides which ones to end by that
+ * order — so signing in on a third device could sign you out of the wrong one.
+ * Every session row written here sets these explicitly, so they are all the
+ * same shape and genuinely comparable.
+ */
+const sessionNow = () => new Date().toISOString();
+
 const CHALLENGE_PREFIX = "challenge:";
 const CHALLENGE_TTL = 300; // 5 minutes
+
+/**
+ * A well-formed hash that no password matches, verified against when the
+ * account does not exist.
+ *
+ * Without it, an unknown identifier returns immediately while a known one
+ * pays for a 100,000-iteration PBKDF2 — a timing difference large enough to
+ * read over the network, which turns the login form into an oracle for
+ * "is this person a user here". The error message is identical either way;
+ * this makes the clock match the message.
+ */
+const ABSENT_USER_HASH = "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
 export class Auth {
   private db: any;
@@ -104,6 +136,51 @@ export class Auth {
       throw new Error("Registration is currently invite-only.");
     }
   }
+  /**
+   * The one place an email address is turned into the form we store and
+   * compare. Lowercased and trimmed.
+   *
+   * SQLite compares text case-sensitively, so skipping this anywhere brings
+   * back a bug that is very hard to report: registering as `Jared@example.com`
+   * and later signing in as `jared@example.com` gives "Invalid credentials",
+   * and the unique index lets both addresses exist as separate accounts.
+   */
+  private normaliseEmail<T extends string | null | undefined>(email: T): T {
+    return (typeof email === "string" ? email.trim().toLowerCase() : email) as T;
+  }
+
+  /**
+   * Check a new password against the configured policy.
+   *
+   * `authConfig.password` was parsed from the environment and read by nothing:
+   * the only check anywhere was a hard-coded `min(8)` in the zod schema, so
+   * PASSWORD_MIN_LENGTH and the rest were settings that silently did nothing.
+   * Every path that sets a password now comes through here.
+   */
+  private assertPasswordPolicy(password: string) {
+    const policy = this.authConfig.password;
+    if (!policy) return;
+
+    const problems: string[] = [];
+    if (password.length < policy.minLength) {
+      problems.push(`be at least ${policy.minLength} characters`);
+    }
+    if (policy.requireUppercase && !/[A-Z]/.test(password))
+      problems.push("include a capital letter");
+    if (policy.requireLowercase && !/[a-z]/.test(password))
+      problems.push("include a lowercase letter");
+    if (policy.requireNumbers && !/[0-9]/.test(password)) problems.push("include a number");
+    if (policy.requireSpecialChars && !/[^A-Za-z0-9]/.test(password)) {
+      problems.push("include a symbol");
+    }
+
+    if (problems.length > 0) {
+      // Say all of it at once. Revealing one rule at a time turns choosing a
+      // password into a guessing game against an invisible checklist.
+      throw new Error(`Password must ${problems.join(", ")}.`);
+    }
+  }
+
   private getTotpObject(secret: string, label: string = "User") {
     return new OTPAuth.TOTP({
       issuer: this.authConfig.totp?.issuer,
@@ -202,43 +279,110 @@ export class Auth {
 
   async validateSession(token: string) {
     try {
-      // 1. Verify Token (Throws error if invalid/expired)
+      // 1. The signature proves the token is ours and unexpired.
       const payload = await verify(token, this.authConfig.security.jwtSecret, JWT_ALG);
       const userId = payload.sub as string;
+      const sessionId = payload.jti as string | undefined;
 
-      // 2. Fetch User (Destructuring the array [user])
-      // Note: Ensure you use 'this.db', not global 'db'
+      // 2. The session row decides whether it is still live. A signature alone
+      //    cannot be taken back: before this table existed, signing out only
+      //    deleted the cookie, so a token copied beforehand kept working for
+      //    as long as it had left to run.
+      if (!sessionId) return { user: null };
+
+      const session = await this.db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+
+      if (!session || session.userId !== userId) return { user: null };
+      if (session.revokedAt) return { user: null };
+      if (new Date(session.expiresAt) <= new Date()) return { user: null };
+
       const [user] = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!user) return { user: null };
 
-      if (!user) {
-        return { user: null };
-      }
+      // Deactivating an account has to end the sessions it already has, or it
+      // only stops the next sign-in.
+      if (!user.isActive) return { user: null };
 
-      // 3. Strip secrets and hydrate roles/permissions
+      await this.touchSession(session);
+
       const safeUser = await this.toSafeUser(user);
-
-      // 4. Update Class State
       this.user = safeUser;
-
-      // In stateless JWT, we usually don't have a session ID unless we track jti
-      // We can just store the token itself if needed
-      // this.session = { id: token };
+      this.session = { id: session.id };
 
       return { user: safeUser };
     } catch (e) {
-      // Token expired, signature invalid, or DB error
-      console.error("Session validation failed", e);
+      // An expired token is the normal end of a session, not a fault. Logging
+      // it at error level fills the log with routine events and teaches you to
+      // scroll past the line that does matter.
+      const expired = e instanceof Error && /expired/i.test(e.name + e.message);
+      if (!expired) console.error("Session validation failed", e);
       return { user: null };
     }
   }
+
+  /**
+   * Record that the session was used, and extend it if it is near the end.
+   *
+   * `lastSeenAt` is written at most once a minute. It is only there so the
+   * "signed in on these devices" list can say something useful, and a write on
+   * every request would cost more than the information is worth.
+   *
+   * The renewal is what makes `session.duration` and `renewalThreshold` mean
+   * something: an active session slides forward rather than logging the user
+   * out mid-task, while one that is genuinely idle still reaches its expiry
+   * and stops.
+   */
+  private async touchSession(session: { id: string; expiresAt: string; lastSeenAt: string }) {
+    const now = Date.now();
+    const update: Record<string, string> = {};
+
+    if (now - new Date(session.lastSeenAt).getTime() > 60_000) {
+      update.lastSeenAt = sessionNow();
+    }
+
+    const remaining = new Date(session.expiresAt).getTime() - now;
+    if (remaining < this.authConfig.session.renewalThreshold) {
+      update.expiresAt = new Date(now + this.authConfig.session.duration).toISOString();
+    }
+
+    if (Object.keys(update).length === 0) return;
+    await this.db.update(sessions).set(update).where(eq(sessions.id, session.id));
+  }
+
+  /**
+   * Open a session: one row, and a cookie naming it.
+   */
   async createSession(user: { id: string; roles: string[] }) {
     const secret = this.authConfig.security.jwtSecret;
     const expiresIn = this.authConfig.security.jwtExpiry;
+    const { ipAddress, userAgent } = this.getContextDetails();
+
+    // The row's expiry is the one that counts, so it governs the cookie too.
+    const duration = Math.min(this.authConfig.session.duration, expiresIn * 1000);
+    const expiresAt = new Date(Date.now() + duration).toISOString();
+
+    const [session] = await this.db
+      .insert(sessions)
+      .values({
+        userId: user.id,
+        expiresAt,
+        ipAddress,
+        userAgent,
+        createdAt: sessionNow(),
+        lastSeenAt: sessionNow(),
+      })
+      .returning();
+
+    await this.enforceSessionLimit(user.id, session.id);
 
     const payload = {
       sub: user.id,
+      // Named, so the token can be traced to a row and that row revoked. The
+      // `role` claim below is informational only — roles are read from the
+      // database on every request, never from here.
+      jti: session.id,
       role: user.roles,
-      exp: Math.floor(Date.now() / 1000) + expiresIn,
+      exp: Math.floor(Date.now() / 1000) + Math.floor(duration / 1000),
     };
 
     const token = await sign(payload, secret, JWT_ALG);
@@ -248,21 +392,114 @@ export class Auth {
     setCookie(this.c, "auth_token", token, {
       httpOnly: true,
       secure: isHttps,
-      sameSite: isHttps ? "Strict" : "Lax",
+      // Lax, not Strict. Strict withholds the cookie on any cross-site
+      // navigation, so following a link to the app from an email or a chat
+      // lands the user on a signed-out page even though their session is
+      // live — they sign in again, or conclude it is broken. Cross-site POSTs
+      // are already refused by the origin check on the auth API.
+      sameSite: "Lax",
       path: "/",
-      maxAge: expiresIn,
+      maxAge: Math.floor(duration / 1000),
     });
 
-    return { token, user };
+    this.session = { id: session.id };
+    return { token, user, sessionId: session.id };
+  }
+
+  /**
+   * Keep only the most recent `maxSessions` live sessions for a user.
+   *
+   * `session.maxSessions` has been in the config from the start and enforced
+   * nowhere, so sessions accumulated for ever: every sign-in on every device
+   * left another key under the mat, and the list of them was unbounded and
+   * invisible.
+   */
+  private async enforceSessionLimit(userId: string, keepSessionId: string) {
+    const limit = this.authConfig.session.maxSessions;
+    if (!limit || limit <= 0) return;
+
+    const live = await this.db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)))
+      .orderBy(desc(sessions.createdAt));
+
+    const surplus = live.slice(limit).filter((s: { id: string }) => s.id !== keepSessionId);
+    for (const stale of surplus) {
+      await this.revokeSession(stale.id, "session_limit");
+    }
+  }
+
+  /** Revoke one session. Idempotent, and it never un-revokes an older one. */
+  async revokeSession(sessionId: string, reason: string = "logout") {
+    const changed = await this.db
+      .update(sessions)
+      .set({ revokedAt: new Date().toISOString(), revokedReason: reason })
+      .where(and(eq(sessions.id, sessionId), isNull(sessions.revokedAt)))
+      .returning({ id: sessions.id });
+
+    return changed.length > 0;
+  }
+
+  /**
+   * Revoke every live session for a user, optionally sparing one.
+   *
+   * Used for "sign out everywhere", and after a password change or reset —
+   * whoever learned the old password should not keep the access it bought
+   * them, which is the entire reason the user changed it.
+   */
+  async revokeAllSessions(userId: string, opts: { except?: string; reason?: string } = {}) {
+    const live = await this.db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
+
+    let revoked = 0;
+    for (const session of live) {
+      if (session.id === opts.except) continue;
+      if (await this.revokeSession(session.id, opts.reason ?? "revoke_all")) revoked++;
+    }
+    return revoked;
+  }
+
+  /** The user's live sessions, newest first, for a "where am I signed in" list. */
+  async listSessions(userId: string): Promise<SessionSummary[]> {
+    const rows = await this.db
+      .select()
+      .from(sessions)
+      .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)))
+      .orderBy(desc(sessions.lastSeenAt));
+
+    const now = new Date();
+    return rows
+      .filter((row: any) => new Date(row.expiresAt) > now)
+      .map((row: any) => ({
+        id: row.id,
+        createdAt: row.createdAt,
+        lastSeenAt: row.lastSeenAt,
+        expiresAt: row.expiresAt,
+        ipAddress: row.ipAddress,
+        userAgent: row.userAgent,
+        current: row.id === this.session?.id,
+      }));
   }
 
   async destroySession() {
+    // Revoke the row first. Clearing the cookie alone leaves a working token
+    // in the hands of anyone who copied it, which is precisely the thing
+    // "sign out" is supposed to prevent.
+    if (this.session?.id) {
+      await this.revokeSession(this.session.id, "logout");
+    }
+
     const isHttps =
       this.c.req.url.startsWith("https://") || this.c.req.header("x-forwarded-proto") === "https";
     deleteCookie(this.c, "auth_token", {
       path: "/",
       secure: isHttps,
     });
+    this.session = null;
+    this.user = null;
   }
 
   // ==========================================
@@ -312,7 +549,12 @@ export class Auth {
   // ==========================================
 
   async register(data: RegisterUser) {
-    this.validateRegistrationEligibility(data.email);
+    const email = this.normaliseEmail(data.email);
+    this.validateRegistrationEligibility(email);
+
+    if (data.password && this.isMethodEnabled("password")) {
+      this.assertPasswordPolicy(data.password);
+    }
 
     let roleToAssign = this.authConfig.roles.default;
 
@@ -331,27 +573,25 @@ export class Auth {
 
       roleToAssign = data.role;
     }
-    const existingUser = await this.db
-      .select()
-      .from(users)
-      .where(eq(users.email, data.email))
-      .get();
+    const existingUser = await this.db.select().from(users).where(eq(users.email, email)).get();
 
     if (existingUser) throw new Error("Email already registered");
 
     const userData: InsertUser = {
       username: data.username,
-      email: data.email,
+      email,
       displayName: data.displayName,
       phoneNumber: data.phoneNumber,
     };
 
+    const iterations = this.authConfig.security.hashIterations;
+
     if (data.password && this.isMethodEnabled("password")) {
-      userData.passwordHash = await hashPassword(data.password);
+      userData.passwordHash = await hashPassword(data.password, iterations);
     }
 
     if (data.pin && this.isMethodEnabled("pin")) {
-      userData.pin = await hashPassword(data.pin);
+      userData.pin = await hashPassword(data.pin, iterations);
     }
 
     const [newUser] = await this.db.insert(users).values(userData).returning();
@@ -402,15 +642,22 @@ export class Auth {
   // LOGIN METHODS
   // ==========================================
 
-  private async handleFailedLogin(userId: string) {
+  private async handleFailedLogin(userId: string, method: string = "unknown") {
     const user = await this.db.select().from(users).where(eq(users.id, userId)).get();
     if (!user) return;
 
-    const attempts = (user.failedLoginAttempts || 0) + 1;
     const maxAttempts = this.authConfig.security.maxFailedAttempts || 5;
     const lockoutDuration = this.authConfig.security.lockoutDuration || 900000;
 
-    const updateData: any = { failedLoginAttempts: attempts };
+    // A lockout that has run its course clears the count with it. Otherwise the
+    // counter stays at the maximum for ever after the first lockout, and every
+    // single later typo re-locks the account for the full duration — the
+    // second offence is punished harder than the first, which is not what a
+    // "five attempts" policy says.
+    const lockExpired = !!user.lockedUntil && new Date(user.lockedUntil) <= new Date();
+    const attempts = (lockExpired ? 0 : user.failedLoginAttempts || 0) + 1;
+
+    const updateData: any = { failedLoginAttempts: attempts, lockedUntil: null };
 
     if (attempts >= maxAttempts) {
       updateData.lockedUntil = new Date(Date.now() + lockoutDuration).toISOString();
@@ -418,13 +665,7 @@ export class Auth {
 
     await this.db.update(users).set(updateData).where(eq(users.id, userId));
 
-    // We manually use insert here if we want to log the failure specifically outside the logAuthEvent wrapper
-    // or just use logAuthEvent as defined
-    await this.logAuthEvent({
-      userId,
-      event: "failed_login",
-      method: "unknown", // Can be passed in if needed, but 'unknown' or generic is fine for shared handler
-    });
+    await this.logAuthEvent({ userId, event: "failed_login", method });
   }
 
   async loginWithPassword(identifier: string, password: string, totpCode?: string) {
@@ -434,10 +675,16 @@ export class Auth {
     const user = await this.db
       .select()
       .from(users)
-      .where(or(eq(users.username, identifier), eq(users.email, identifier)))
+      .where(or(eq(users.username, identifier), eq(users.email, this.normaliseEmail(identifier))))
       .get();
 
-    if (!user) throw new Error("Invalid credentials");
+    if (!user) {
+      // Spend the same time as a real verify — see ABSENT_USER_HASH.
+      await verifyPassword(password, ABSENT_USER_HASH);
+      throw new Error("Invalid credentials");
+    }
+
+    if (!user.isActive) throw new Error("Invalid credentials");
 
     if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
       throw new Error("Account is temporarily locked");
@@ -446,25 +693,43 @@ export class Auth {
     const isValid = await verifyPassword(password, user.passwordHash || "");
 
     if (!isValid) {
-      await this.handleFailedLogin(user.id);
+      await this.handleFailedLogin(user.id, "password");
       throw new Error("Invalid credentials");
     }
+
     if (user.totpEnabled) {
       if (!totpCode) {
         throw new Error("TOTP_REQUIRED");
       }
 
-      const isValid = this.verifyTotpCode(user.totpSecret, totpCode);
-      if (!isValid) throw new Error("Invalid 2FA Code");
+      // A wrong second factor is a failed login like any other. It used to
+      // throw straight out, so an attacker holding the password could guess
+      // the six digits for ever: no counter, no lockout, and nothing in the
+      // auth log to show it happened. The lockout only defended the factor
+      // that had already been broken.
+      const isTotpValid = this.verifyTotpCode(user.totpSecret, totpCode);
+      if (!isTotpValid) {
+        await this.handleFailedLogin(user.id, "totp");
+        throw new Error("Invalid 2FA Code");
+      }
     }
-    await this.db
-      .update(users)
-      .set({
-        failedLoginAttempts: 0,
-        lockedUntil: null,
-        lastLoginAt: new Date().toISOString(),
-      })
-      .where(eq(users.id, user.id));
+
+    const freshState: Record<string, unknown> = {
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      lastLoginAt: new Date().toISOString(),
+    };
+
+    // The only moment the plaintext is in hand, so the only free moment to
+    // bring an old hash up to the current cost. Raising the iteration count
+    // then upgrades accounts as their owners sign in, rather than needing a
+    // password reset for everybody.
+    const iterations = this.authConfig.security.hashIterations;
+    if (user.passwordHash && needsRehash(user.passwordHash, iterations)) {
+      freshState.passwordHash = await hashPassword(password, iterations);
+    }
+
+    await this.db.update(users).set(freshState).where(eq(users.id, user.id));
 
     await this.logAuthEvent({
       userId: user.id,
@@ -483,10 +748,15 @@ export class Auth {
     const user = await this.db
       .select()
       .from(users)
-      .where(or(eq(users.username, identifier), eq(users.email, identifier)))
+      .where(or(eq(users.username, identifier), eq(users.email, this.normaliseEmail(identifier))))
       .get();
 
-    if (!user || !user.pin) throw new Error("Invalid credentials");
+    if (!user || !user.pin) {
+      await verifyPassword(pin, ABSENT_USER_HASH);
+      throw new Error("Invalid credentials");
+    }
+
+    if (!user.isActive) throw new Error("Invalid credentials");
 
     if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
       throw new Error("Account is temporarily locked");
@@ -495,7 +765,7 @@ export class Auth {
     const isValid = await verifyPassword(pin, user.pin);
 
     if (!isValid) {
-      await this.handleFailedLogin(user.id);
+      await this.handleFailedLogin(user.id, "pin");
       throw new Error("Invalid credentials");
     }
 
@@ -525,10 +795,12 @@ export class Auth {
     const user = await this.db
       .select()
       .from(users)
-      .where(or(eq(users.username, identifier), eq(users.email, identifier)))
+      .where(or(eq(users.username, identifier), eq(users.email, this.normaliseEmail(identifier))))
       .get();
 
     if (!user || !user.totpSecret) throw new Error("Invalid credentials");
+
+    if (!user.isActive) throw new Error("Invalid credentials");
 
     if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
       throw new Error("Account is temporarily locked");
@@ -536,7 +808,7 @@ export class Auth {
     const isValid = this.verifyTotpCode(user.totpSecret, totpCode);
 
     if (!isValid) {
-      await this.handleFailedLogin(user.id);
+      await this.handleFailedLogin(user.id, "totp");
       throw new Error("Invalid TOTP code");
     }
 
@@ -594,9 +866,13 @@ export class Auth {
     const code = randomString(32);
     const expiresAt = new Date(Date.now() + 3600000);
 
+    // Store a hash, never the token. A reset code in the clear is a password
+    // equivalent: anyone who can read the table — a backup, a log of a query,
+    // a read-only replica — can take over every account with a reset pending,
+    // and unlike a password it needs no cracking at all.
     await this.db.insert(verificationCodes).values({
       userId: user.id,
-      code,
+      code: await hashToken(code),
       type: "password_reset",
       expiresAt: expiresAt.toISOString(),
     });
@@ -612,12 +888,13 @@ export class Auth {
   }
 
   async resetPassword(token: string, newPassword: string) {
+    // Look up by hash, since that is what was stored.
     const verification = await this.db
       .select()
       .from(verificationCodes)
       .where(
         and(
-          eq(verificationCodes.code, token),
+          eq(verificationCodes.code, await hashToken(token)),
           eq(verificationCodes.type, "password_reset"),
           gt(verificationCodes.expiresAt, new Date().toISOString()),
         ),
@@ -626,13 +903,21 @@ export class Auth {
 
     if (!verification) throw new Error("Invalid or expired reset token");
 
-    const newHash = await hashPassword(newPassword);
+    this.assertPasswordPolicy(newPassword);
+
+    const newHash = await hashPassword(newPassword, this.authConfig.security.hashIterations);
     await this.db
       .update(users)
       .set({ passwordHash: newHash })
       .where(eq(users.id, verification.userId));
 
+    // Single use.
     await this.db.delete(verificationCodes).where(eq(verificationCodes.id, verification.id));
+
+    // A reset is the one case where every existing session should end without
+    // exception: the person resetting is not necessarily the person signed in,
+    // and that is the whole point of resetting.
+    await this.revokeAllSessions(verification.userId, { reason: "password_reset" });
 
     await this.logAuthEvent({
       userId: verification.userId,
@@ -662,8 +947,10 @@ export class Auth {
       throw new Error("Current password is incorrect.");
     }
 
+    this.assertPasswordPolicy(data.newPassword);
+
     // 3. Hash NEW password
-    const newHash = await hashPassword(data.newPassword);
+    const newHash = await hashPassword(data.newPassword, this.authConfig.security.hashIterations);
 
     // 4. Update DB
     await this.db
@@ -673,6 +960,16 @@ export class Auth {
         updatedAt: new Date().toISOString(),
       })
       .where(eq(users.id, userId));
+
+    // 5. End every other session. Someone changing their password usually
+    //    believes the old one is known, and leaving the sessions it opened
+    //    running gives whoever knows it continued access to the account. This
+    //    session survives, so the user is not signed out of the tab they are
+    //    standing in.
+    await this.revokeAllSessions(userId, {
+      except: this.session?.id,
+      reason: "password_change",
+    });
 
     await this.logAuthEvent({ userId, event: "password_change", method: "password" });
   }

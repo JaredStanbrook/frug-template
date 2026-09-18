@@ -29,6 +29,11 @@ webAuth.get("/register", (c) => {
     methods: Array.from(authConfig.methods),
     roles: authConfig.roles?.available || ["user"],
     defaultRole: authConfig.roles?.default || "user",
+    // The form should state the rule it will be judged by. Without this the
+    // page advertised a minimum of 8 while the server enforced whatever
+    // PASSWORD_MIN_LENGTH said, so the only way to learn the real rule was to
+    // be rejected by it.
+    passwordPolicy: authConfig.password,
   };
   return c.render(<Register {...props} />, {
     title: "Create Account",
@@ -49,7 +54,10 @@ webAuth.get("/login", (c) => {
 webAuth.post("/web/auth/logout", async (c) => {
   // 1. Clear Cookies/Session
   const { auth } = c.var;
-  auth.destroySession();
+  // Awaited: this revokes the session row, and an un-awaited promise can be
+  // dropped when the response goes out — leaving a "logged out" user whose
+  // token still works.
+  await auth.destroySession();
 
   flashToast(c, "Logged out successfully", {
     type: "success",

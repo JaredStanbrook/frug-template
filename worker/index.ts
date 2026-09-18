@@ -7,6 +7,7 @@ import type { AppEnv } from "./types";
 
 import routes from "./app";
 
+import { requireSecrets } from "./middleware/secrets.middleware";
 import { configMiddleware } from "./middleware/config.middleware";
 import { dbMiddleware } from "./middleware/db.middleware";
 import { authMiddleware } from "./middleware/auth.middleware";
@@ -36,6 +37,10 @@ worker.use("*", (c, next) =>
     credentials: true,
   })(c, next),
 );
+
+// Before anything reads config or touches the database: a missing JWT_SECRET
+// makes sessions forgeable rather than merely broken, so nothing is served.
+worker.use("*", requireSecrets);
 
 // Applied globally so SSR pages get the same context as API routes.
 worker.use("*", configMiddleware);
