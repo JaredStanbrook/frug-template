@@ -97,3 +97,33 @@ export const AuthHeading = ({ title, sub }: { title: string; sub: string }) => (
     <p class="text-sm text-muted-foreground">{sub}</p>
   </div>
 );
+
+export interface PasswordPolicy {
+  minLength: number;
+  requireUppercase: boolean;
+  requireLowercase: boolean;
+  requireNumbers: boolean;
+  requireSpecialChars: boolean;
+}
+
+/**
+ * The configured password rule, in a sentence, for the form to show up front.
+ *
+ * Same rule the server enforces (`assertPasswordPolicy`), read from the same
+ * config — so the two cannot drift into telling the user different things.
+ */
+export const describePasswordPolicy = (policy?: PasswordPolicy) => {
+  if (!policy) return "";
+
+  const extras: string[] = [];
+  if (policy.requireUppercase) extras.push("a capital letter");
+  if (policy.requireLowercase) extras.push("a lowercase letter");
+  if (policy.requireNumbers) extras.push("a number");
+  if (policy.requireSpecialChars) extras.push("a symbol");
+
+  const base = `At least ${policy.minLength} characters`;
+  if (extras.length === 0) {
+    return `${base}. Length matters more than punctuation — a passphrase works well.`;
+  }
+  return `${base}, including ${extras.join(", ")}.`;
+};

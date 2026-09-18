@@ -6,7 +6,8 @@ import { eq } from "drizzle-orm";
 import * as OTPAuth from "otpauth";
 
 import { Auth } from "../worker/services/auth.service";
-import { users } from "../worker/schema/auth.schema";
+import { users, verificationCodes } from "../worker/schema/auth.schema";
+import { sessions } from "../worker/schema/session.schema";
 import { userRoles } from "../worker/schema/roles.schema";
 import { hashPassword } from "../worker/lib/crypto";
 import type { AuthConfig } from "../worker/config/auth.config";
@@ -30,7 +31,10 @@ const JWT_SECRET = "test-secret-not-a-real-one";
 
 const createAuthConfig = (over: Partial<AuthConfig["security"]> = {}): AuthConfig => ({
   methods: new Set(["password", "pin", "totp"] as any),
-  session: { duration: 1000, renewalThreshold: 500, maxSessions: 5 },
+  // Real durations. These were 1000/500 when nothing read them; now that the
+  // session row's expiry is enforced, a one-second session expires between one
+  // step of a test and the next — which looks like a revocation bug and is not.
+  session: { duration: 24 * 60 * 60 * 1000, renewalThreshold: 60 * 60 * 1000, maxSessions: 5 },
   security: {
     maxFailedAttempts: 3,
     lockoutDuration: 900000,
@@ -39,12 +43,16 @@ const createAuthConfig = (over: Partial<AuthConfig["security"]> = {}): AuthConfi
     allowedEmails: [],
     jwtSecret: JWT_SECRET,
     jwtExpiry: 3600,
+    // Deliberately low: these tests hash dozens of passwords, and the cost of
+    // the real setting is the point of the real setting, not of this suite.
+    hashIterations: 1000,
     ...over,
   },
   roles: { available: ["user", "admin"], default: "user", restricted: ["admin"], inherent: {} },
   permissions: { available: [] },
+  // The shipped defaults: length is the rule, composition is opt-in.
   password: {
-    minLength: 8,
+    minLength: 12,
     requireUppercase: false,
     requireLowercase: false,
     requireNumbers: false,
@@ -118,7 +126,72 @@ const seedUser = async (over: Record<string, unknown> = {}) => {
 
 const readUser = (id: string) => db.select().from(users).where(eq(users.id, id)).get();
 
+/**
+ * A hash in the pre-versioning format: `salt.hash`, always 100,000 rounds.
+ * Written out by hand because nothing produces it any more — which is the
+ * point of the test that uses it.
+ */
+const legacyHash = async (password: string) => {
+  const salt = new Uint8Array(16);
+  crypto.getRandomValues(salt);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations: 100_000, hash: "SHA-256" },
+    key,
+    256,
+  );
+  const b64 = (bytes: Uint8Array) =>
+    btoa(String.fromCharCode(...bytes))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=/g, "");
+  return `${b64(salt)}.${b64(new Uint8Array(bits))}`;
+};
+
+/**
+ * Trigger a reset and read the code back.
+ *
+ * The template has no mail transport, so `requestPasswordReset` logs the code
+ * — which is exactly how a developer would get at it locally, and the only
+ * handle a test has on it now that the stored copy is hashed.
+ */
+const requestResetAndCaptureCode = async () => {
+  const logged: string[] = [];
+  const original = console.log;
+  console.log = (...args: unknown[]) => logged.push(args.join(" "));
+  try {
+    await inContext((auth) => auth.requestPasswordReset("member@example.com"));
+  } finally {
+    console.log = original;
+  }
+  const match = logged.join("\n").match(/([0-9a-f]{32})/);
+  if (!match) throw new Error("no reset code was logged");
+  return match[1];
+};
+
 const cookieFrom = (res: Response) => res.headers.get("set-cookie") ?? "";
+
+const tokenFrom = (res: Response) => cookieFrom(res).match(/auth_token=([^;]+)/)?.[1];
+
+/** Sign in properly and hand back the cookie's token plus the session id. */
+const openSession = async (userId: string, headers?: Record<string, string>) => {
+  let sessionId = "";
+  const { res } = await inContext(
+    async (auth) => {
+      const out = await auth.createSession({ id: userId, roles: ["user"] });
+      sessionId = out.sessionId;
+      return out;
+    },
+    { headers },
+  );
+  return { token: tokenFrom(res)!, sessionId, res };
+};
 
 describe("session tokens", () => {
   it("issues a cookie that validates back to the same user", async () => {
@@ -136,10 +209,8 @@ describe("session tokens", () => {
   });
 
   it("protects the cookie: HttpOnly, Secure on https, Lax", async () => {
-    await inContext(async (auth) => auth.createSession({ id: "u1", roles: ["user"] }));
-    const cookie = cookieFrom(
-      (await inContext(async (auth) => auth.createSession({ id: "u1", roles: ["user"] }))).res,
-    );
+    const user = await seedUser();
+    const cookie = cookieFrom((await openSession(user.id)).res);
 
     // HttpOnly keeps the token out of reach of any script on the page.
     expect(cookie).toContain("HttpOnly");
@@ -151,8 +222,9 @@ describe("session tokens", () => {
   });
 
   it("omits Secure over plain http, so local development still works", async () => {
+    const user = await seedUser();
     const { res } = await inContext(
-      async (auth) => auth.createSession({ id: "u1", roles: ["user"] }),
+      async (auth) => auth.createSession({ id: user.id, roles: ["user"] }),
       { url: "http://localhost:3000/" },
     );
     expect(cookieFrom(res)).not.toContain("Secure");
@@ -190,8 +262,11 @@ describe("session tokens", () => {
    */
   it("takes roles from the database, never from the token", async () => {
     const user = await seedUser();
+    const { sessionId } = await openSession(user.id);
+
+    // A live session, correctly signed, whose role claim says otherwise.
     const claimsAdmin = await sign(
-      { sub: user.id, role: ["admin"], exp: Math.floor(Date.now() / 1000) + 3600 },
+      { sub: user.id, jti: sessionId, role: ["admin"], exp: Math.floor(Date.now() / 1000) + 3600 },
       JWT_SECRET,
       "HS256",
     );
@@ -202,11 +277,7 @@ describe("session tokens", () => {
 
   it("stops honouring the session of a deactivated account", async () => {
     const user = await seedUser();
-    const token = await sign(
-      { sub: user.id, role: ["user"], exp: Math.floor(Date.now() / 1000) + 3600 },
-      JWT_SECRET,
-      "HS256",
-    );
+    const { token } = await openSession(user.id);
 
     expect(((await inContext((a) => a.validateSession(token))).value as any).user).not.toBeNull();
 
@@ -387,24 +458,26 @@ describe("TOTP as a second factor", () => {
 describe("registration", () => {
   it("turns a registration into a usable login", async () => {
     const { message } = await inContext((auth) =>
-      auth.register({ email: "new@example.com", password: "a-good-password" } as any),
+      auth.register({ email: "new@example.com", password: "a-long-enough-password" } as any),
     );
     expect(message).toBeUndefined();
 
     const { value } = await inContext((auth) =>
-      auth.loginWithPassword("new@example.com", "a-good-password"),
+      auth.loginWithPassword("new@example.com", "a-long-enough-password"),
     );
     expect((value as any).user.email).toBe("new@example.com");
   });
 
   it("stores the password as a hash, never as given", async () => {
     await inContext((auth) =>
-      auth.register({ email: "new@example.com", password: "a-good-password" } as any),
+      auth.register({ email: "new@example.com", password: "a-long-enough-password" } as any),
     );
 
     const row = await db.select().from(users).where(eq(users.email, "new@example.com")).get();
-    expect(row.passwordHash).not.toContain("a-good-password");
-    expect(row.passwordHash).toMatch(/^[\w-]+\.[\w-]+$/); // salt.hash
+    expect(row.passwordHash).not.toContain("a-long-enough-password");
+    // algorithm $ cost $ salt $ hash — the cost travels with the hash so it
+    // can be raised later without invalidating what is already stored.
+    expect(row.passwordHash).toMatch(/^pbkdf2-sha256\$\d+\$[\w-]+\$[\w-]+$/);
   });
 
   it("honours an invite-only allow list", async () => {
@@ -412,13 +485,17 @@ describe("registration", () => {
 
     const blocked = await inContext(
       (auth) =>
-        auth.register({ email: "gatecrasher@example.com", password: "a-good-password" } as any),
+        auth.register({
+          email: "gatecrasher@example.com",
+          password: "a-long-enough-password",
+        } as any),
       { config },
     );
     expect(blocked.message).toMatch(/invite-only/i);
 
     const allowed = await inContext(
-      (auth) => auth.register({ email: "invited@example.com", password: "a-good-password" } as any),
+      (auth) =>
+        auth.register({ email: "invited@example.com", password: "a-long-enough-password" } as any),
       { config },
     );
     expect(allowed.message).toBeUndefined();
@@ -428,7 +505,7 @@ describe("registration", () => {
     const { message } = await inContext((auth) =>
       auth.register({
         email: "climber@example.com",
-        password: "a-good-password",
+        password: "a-long-enough-password",
         role: "admin",
       } as any),
     );
@@ -454,7 +531,8 @@ describe("registration", () => {
 
   it("promotes the bootstrap admin when no admin exists", async () => {
     await inContext(
-      (auth) => auth.register({ email: "owner@example.com", password: "a-good-password" } as any),
+      (auth) =>
+        auth.register({ email: "owner@example.com", password: "a-long-enough-password" } as any),
       { env },
     );
     expect(await rolesOf("owner@example.com")).toContain("admin");
@@ -466,7 +544,8 @@ describe("registration", () => {
     await db.insert(userRoles).values({ userId: existing.id, role: "admin" });
 
     await inContext(
-      (auth) => auth.register({ email: "owner@example.com", password: "a-good-password" } as any),
+      (auth) =>
+        auth.register({ email: "owner@example.com", password: "a-long-enough-password" } as any),
       { env },
     );
 
@@ -477,9 +556,362 @@ describe("registration", () => {
 
   it("ignores an address that does not match the variable", async () => {
     await inContext(
-      (auth) => auth.register({ email: "someone@example.com", password: "a-good-password" } as any),
+      (auth) =>
+        auth.register({ email: "someone@example.com", password: "a-long-enough-password" } as any),
       { env },
     );
     expect(await rolesOf("someone@example.com")).not.toContain("admin");
+  });
+});
+
+describe("session revocation", () => {
+  it("signing out kills the token, not just the cookie", async () => {
+    const user = await seedUser();
+    const { token, sessionId } = await openSession(user.id);
+
+    // Sign out from a request that carries the session.
+    await inContext(async (auth) => {
+      await auth.validateSession(token);
+      await auth.destroySession();
+    });
+
+    // The same token, replayed — as anyone who copied it before logout would.
+    // The cookie is gone from that browser; the token is not gone from theirs.
+    const { value } = await inContext((auth) => auth.validateSession(token));
+    expect((value as any).user).toBeNull();
+
+    const row = await db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+    expect(row.revokedAt).toBeTruthy();
+    expect(row.revokedReason).toBe("logout");
+  });
+
+  it("ends one device without touching the others", async () => {
+    const user = await seedUser();
+    const laptop = await openSession(user.id, { "user-agent": "laptop" });
+    const phone = await openSession(user.id, { "user-agent": "phone" });
+
+    await inContext((auth) => auth.revokeSession(laptop.sessionId, "revoked_by_user"));
+
+    expect(
+      ((await inContext((a) => a.validateSession(laptop.token))).value as any).user,
+    ).toBeNull();
+    expect(
+      ((await inContext((a) => a.validateSession(phone.token))).value as any).user,
+    ).not.toBeNull();
+  });
+
+  it("signs out everywhere but here", async () => {
+    const user = await seedUser();
+    const here = await openSession(user.id);
+    const elsewhere = [await openSession(user.id), await openSession(user.id)];
+
+    const { value } = await inContext(async (auth) => {
+      await auth.validateSession(here.token);
+      return auth.revokeAllSessions(user.id, { except: here.sessionId, reason: "revoked_by_user" });
+    });
+
+    expect(value).toBe(2);
+    expect(
+      ((await inContext((a) => a.validateSession(here.token))).value as any).user,
+    ).not.toBeNull();
+    for (const gone of elsewhere) {
+      expect(
+        ((await inContext((a) => a.validateSession(gone.token))).value as any).user,
+      ).toBeNull();
+    }
+  });
+
+  it("changing a password ends every other session", async () => {
+    const user = await seedUser();
+    const here = await openSession(user.id);
+    const stolen = await openSession(user.id);
+
+    await inContext(async (auth) => {
+      await auth.validateSession(here.token);
+      return auth.changePassword(user.id, {
+        currentPassword: "correct horse battery",
+        newPassword: "a-different-long-password",
+      } as any);
+    });
+
+    // Whoever learned the old password does not keep what it bought them —
+    // which is the entire reason for changing it.
+    expect(
+      ((await inContext((a) => a.validateSession(stolen.token))).value as any).user,
+    ).toBeNull();
+    // The tab doing the changing stays signed in.
+    expect(
+      ((await inContext((a) => a.validateSession(here.token))).value as any).user,
+    ).not.toBeNull();
+  });
+
+  it("keeps only maxSessions devices, oldest out first", async () => {
+    const user = await seedUser();
+    const config = createAuthConfig();
+    config.session.maxSessions = 2;
+
+    const first = await openSession(user.id);
+    const second = await openSession(user.id);
+    let third = "";
+    await inContext(
+      async (auth) => {
+        third = (await auth.createSession({ id: user.id, roles: ["user"] })).sessionId;
+      },
+      { config },
+    );
+
+    const live = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.userId, user.id))
+      .then((rows: any[]) => rows.filter((r) => !r.revokedAt).map((r) => r.id));
+
+    expect(live).toContain(third);
+    expect(live).toContain(second.sessionId);
+    expect(live).not.toContain(first.sessionId);
+  });
+
+  it("lists the live sessions, marking the current one", async () => {
+    const user = await seedUser();
+    const here = await openSession(user.id, { "user-agent": "here-browser" });
+    await openSession(user.id, { "user-agent": "other-browser" });
+
+    const { value } = await inContext(async (auth) => {
+      await auth.validateSession(here.token);
+      return auth.listSessions(user.id);
+    });
+
+    const list = value as any[];
+    expect(list).toHaveLength(2);
+    expect(list.filter((s) => s.current)).toHaveLength(1);
+    expect(list.find((s) => s.current).id).toBe(here.sessionId);
+    expect(list.map((s) => s.userAgent)).toContain("other-browser");
+  });
+
+  it("refuses a token naming a session that never existed", async () => {
+    const user = await seedUser();
+    const invented = await sign(
+      {
+        sub: user.id,
+        jti: "00000000-0000-0000-0000-000000000000",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      },
+      JWT_SECRET,
+      "HS256",
+    );
+
+    expect(((await inContext((a) => a.validateSession(invented))).value as any).user).toBeNull();
+  });
+
+  it("refuses a session belonging to somebody else", async () => {
+    const mine = await seedUser();
+    const theirs = await seedUser({ email: "other@example.com", username: "other" });
+    const { sessionId } = await openSession(theirs.id);
+
+    // Correctly signed, live session — but the subject is not its owner.
+    const mismatched = await sign(
+      { sub: mine.id, jti: sessionId, exp: Math.floor(Date.now() / 1000) + 3600 },
+      JWT_SECRET,
+      "HS256",
+    );
+
+    expect(((await inContext((a) => a.validateSession(mismatched))).value as any).user).toBeNull();
+  });
+
+  it("refuses a session past its expiry, whatever the token says", async () => {
+    const user = await seedUser();
+    const { token, sessionId } = await openSession(user.id);
+
+    // The JWT is still valid for an hour; the row is not.
+    await db
+      .update(sessions)
+      .set({ expiresAt: new Date(Date.now() - 1000).toISOString() })
+      .where(eq(sessions.id, sessionId));
+
+    expect(((await inContext((a) => a.validateSession(token))).value as any).user).toBeNull();
+  });
+});
+
+describe("email case", () => {
+  it("signs in whatever the capitalisation", async () => {
+    await inContext((auth) =>
+      auth.register({ email: "Jared@Example.com", password: "a-long-enough-password" } as any),
+    );
+
+    for (const spelling of ["jared@example.com", "Jared@Example.com", "JARED@EXAMPLE.COM"]) {
+      const { value, message } = await inContext((auth) =>
+        auth.loginWithPassword(spelling, "a-long-enough-password"),
+      );
+      expect(message, `signing in as ${spelling}`).toBeUndefined();
+      expect((value as any).user.email).toBe("jared@example.com");
+    }
+  });
+
+  it("will not let one mailbox become two accounts", async () => {
+    await inContext((auth) =>
+      auth.register({ email: "Jared@Example.com", password: "a-long-enough-password" } as any),
+    );
+    const { message } = await inContext((auth) =>
+      auth.register({ email: "jared@example.com", password: "a-long-enough-password" } as any),
+    );
+
+    expect(message).toBe("Email already registered");
+  });
+});
+
+describe("password policy", () => {
+  const strict = () => {
+    const config = createAuthConfig();
+    config.password = {
+      minLength: 12,
+      requireUppercase: true,
+      requireLowercase: true,
+      requireNumbers: true,
+      requireSpecialChars: true,
+    };
+    return config;
+  };
+
+  it("applies the configured rules on registration", async () => {
+    const config = strict();
+    const { message } = await inContext(
+      (auth) => auth.register({ email: "weak@example.com", password: "short" } as any),
+      { config },
+    );
+
+    // Everything wrong with it, in one go — not one rule at a time.
+    expect(message).toContain("at least 12 characters");
+    expect(message).toContain("capital letter");
+    expect(message).toContain("number");
+    expect(message).toContain("symbol");
+  });
+
+  it("accepts a password that satisfies them", async () => {
+    const { message } = await inContext(
+      (auth) => auth.register({ email: "ok@example.com", password: "Str0ng-Enough!" } as any),
+      { config: strict() },
+    );
+    expect(message).toBeUndefined();
+  });
+
+  it("applies the same rules to a password change", async () => {
+    const user = await seedUser();
+    const { message } = await inContext(
+      (auth) =>
+        auth.changePassword(user.id, {
+          currentPassword: "correct horse battery",
+          newPassword: "short",
+        } as any),
+      { config: strict() },
+    );
+    expect(message).toContain("at least 12 characters");
+  });
+
+  it("defaults to length over composition rules", async () => {
+    // NIST's position, and the template's default: a long passphrase with no
+    // capitals, digits or symbols is fine; a short cryptic one is not.
+    const passphrase = await inContext((auth) =>
+      auth.register({ email: "phrase@example.com", password: "correct horse battery" } as any),
+    );
+    expect(passphrase.message).toBeUndefined();
+
+    const short = await inContext((auth) =>
+      auth.register({ email: "short@example.com", password: "Aa1!xyz" } as any),
+    );
+    expect(short.message).toContain("at least 12 characters");
+  });
+});
+
+describe("password hashing", () => {
+  it("upgrades an old hash on the next successful sign-in", async () => {
+    const user = await seedUser();
+
+    // A hash in the pre-versioning format, which was always 100,000 rounds.
+    const legacy = await legacyHash("correct horse battery");
+    await db.update(users).set({ passwordHash: legacy }).where(eq(users.id, user.id));
+    expect((await readUser(user.id)).passwordHash).toBe(legacy);
+
+    const config = createAuthConfig();
+    config.security.hashIterations = 150_000;
+
+    const { message } = await inContext(
+      (auth) => auth.loginWithPassword("member@example.com", "correct horse battery"),
+      { config },
+    );
+    expect(message, "the old hash must still verify").toBeUndefined();
+
+    // Same password, re-stored at the current cost — no reset email needed.
+    const after = (await readUser(user.id)).passwordHash;
+    expect(after).not.toBe(legacy);
+    expect(after).toMatch(/^pbkdf2-sha256\$150000\$/);
+
+    // And it still works afterwards.
+    const again = await inContext(
+      (auth) => auth.loginWithPassword("member@example.com", "correct horse battery"),
+      { config },
+    );
+    expect(again.message).toBeUndefined();
+  });
+
+  it("leaves a hash alone when it is already current", async () => {
+    const user = await seedUser();
+    const before = (await readUser(user.id)).passwordHash;
+
+    await inContext((auth) =>
+      auth.loginWithPassword("member@example.com", "correct horse battery"),
+    );
+
+    expect((await readUser(user.id)).passwordHash).toBe(before);
+  });
+});
+
+describe("password reset", () => {
+  it("stores a hash of the reset code, not the code", async () => {
+    await seedUser();
+    const code = await requestResetAndCaptureCode();
+
+    const [row] = await db.select().from(verificationCodes);
+    // A reset code in the clear is a password equivalent for every pending
+    // reset in the table.
+    expect(row.code).not.toBe(code);
+    expect(row.code).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("accepts the real code once, and never again", async () => {
+    const user = await seedUser();
+    const code = await requestResetAndCaptureCode();
+
+    const first = await inContext((auth) => auth.resetPassword(code, "a-brand-new-password"));
+    expect(first.message).toBeUndefined();
+
+    const second = await inContext((auth) => auth.resetPassword(code, "another-new-password"));
+    expect(second.message).toMatch(/invalid or expired/i);
+
+    const { value } = await inContext((auth) =>
+      auth.loginWithPassword("member@example.com", "a-brand-new-password"),
+    );
+    expect((value as any).user.id).toBe(user.id);
+  });
+
+  it("refuses a code that is merely well-formed", async () => {
+    await seedUser();
+    await requestResetAndCaptureCode();
+
+    const { message } = await inContext((auth) =>
+      auth.resetPassword("f".repeat(32), "a-brand-new-password"),
+    );
+    expect(message).toMatch(/invalid or expired/i);
+  });
+
+  it("ends every existing session", async () => {
+    const user = await seedUser();
+    const open = await openSession(user.id);
+    const code = await requestResetAndCaptureCode();
+
+    await inContext((auth) => auth.resetPassword(code, "a-brand-new-password"));
+
+    // Unlike a password change, a reset spares nothing: the person resetting
+    // may not be the person signed in, and that is usually the point.
+    expect(((await inContext((a) => a.validateSession(open.token))).value as any).user).toBeNull();
   });
 });

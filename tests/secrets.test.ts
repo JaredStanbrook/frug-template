@@ -107,3 +107,38 @@ describe("auth config", () => {
     expect(validateAuthConfig({ ...env, JWT_SECRET: "a-real-secret" }).valid).toBe(true);
   });
 });
+
+describe("session configuration", () => {
+  const base = { AUTH_METHODS: "password", JWT_SECRET: "a-real-secret" };
+
+  /**
+   * SESSION_DURATION is milliseconds and the JWT_EXPIRY beside it is seconds,
+   * so a value copied into the wrong one is a valid integer that signs every
+   * user out seconds after they arrive. Nothing downstream can tell that from
+   * a deliberate choice, and the symptom — "it keeps logging me out" — points
+   * nowhere near the cause.
+   */
+  it("catches a session duration given in seconds", () => {
+    const result = validateAuthConfig({ ...base, SESSION_DURATION: "86400" });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(" ")).toContain("SESSION_DURATION");
+  });
+
+  it("accepts a duration in milliseconds", () => {
+    expect(validateAuthConfig({ ...base, SESSION_DURATION: "86400000" }).valid).toBe(true);
+  });
+
+  it("catches a renewal threshold longer than the session itself", () => {
+    const result = validateAuthConfig({
+      ...base,
+      SESSION_DURATION: "3600000",
+      SESSION_RENEWAL_THRESHOLD: "7200000",
+    });
+
+    // Renewing on every use means the session never ends, which is the
+    // opposite of what setting a duration was meant to do.
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(" ")).toContain("SESSION_RENEWAL_THRESHOLD");
+  });
+});

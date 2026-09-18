@@ -321,12 +321,63 @@ export const apiAuth = new Hono<AppEnv>()
   .post("/logout", async (c) => {
     try {
       const { auth } = c.var;
-      auth.destroySession();
+      // Awaited: this now revokes the session row, and an un-awaited promise
+      // can be discarded when the response is sent — leaving a "logged out"
+      // user whose token still works.
+      await auth.destroySession();
       return c.json({ success: true });
     } catch (e) {
       console.error("Logout error", e);
       return c.json({ error: "Failed to log out." }, 500);
     }
+  })
+
+  /**
+   * Where am I signed in? One entry per device, newest use first.
+   */
+  .get("/sessions", async (c) => {
+    const { auth } = c.var;
+    if (!auth.user) return c.json({ error: "Not authenticated" }, 401);
+
+    return c.json({ sessions: await auth.listSessions(auth.user.id) });
+  })
+
+  /**
+   * End one session — the "this wasn't me" button next to a device.
+   */
+  .delete("/sessions/:id", async (c) => {
+    const { auth } = c.var;
+    if (!auth.user) return c.json({ error: "Not authenticated" }, 401);
+
+    // Scoped by owner in the lookup, not checked afterwards: an id belonging
+    // to somebody else must not be revocable, and must not be distinguishable
+    // from one that does not exist.
+    const owned = await auth.listSessions(auth.user.id);
+    const target = owned.find((s) => s.id === c.req.param("id"));
+    if (!target) return c.json({ error: "Session not found" }, 404);
+
+    await auth.revokeSession(target.id, "revoked_by_user");
+
+    // Revoking the one you are using is a logout, so clear the cookie too.
+    if (target.current) await auth.destroySession();
+
+    return c.json({ success: true, current: target.current });
+  })
+
+  /**
+   * Sign out everywhere, keeping this device. What you reach for after losing
+   * a laptop, and the reason a session list is worth having at all.
+   */
+  .post("/sessions/revoke-all", async (c) => {
+    const { auth } = c.var;
+    if (!auth.user) return c.json({ error: "Not authenticated" }, 401);
+
+    const revoked = await auth.revokeAllSessions(auth.user.id, {
+      except: auth.session?.id,
+      reason: "revoked_by_user",
+    });
+
+    return c.json({ success: true, revoked });
   })
   /**
    * Auth logs (admin/security monitoring)

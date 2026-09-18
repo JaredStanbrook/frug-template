@@ -176,12 +176,13 @@ for changes, let it push, watch the build.
 
 Most vars are safe defaults. These break things quietly:
 
-| Var             | Must be                            | Symptom when wrong                                             |
-| --------------- | ---------------------------------- | -------------------------------------------------------------- |
-| `RP_ID`         | Bare hostname, no scheme or port   | Passkeys fail with an opaque browser error                     |
-| `ORIGIN`        | Full origin with `https://`        | Passkeys fail; CSRF rejects your own forms                     |
-| `JWT_EXPIRY`    | **Seconds** (`86400` = 24h)        | A millisecond value (`86400000`) gives a ~2.7 **year** session |
-| `ROLES_DEFAULT` | A role listed in `ROLES_AVAILABLE` | Registration throws at runtime                                 |
+| Var                | Must be                             | Symptom when wrong                                                                                                           |
+| ------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `RP_ID`            | Bare hostname, no scheme or port    | Passkeys fail with an opaque browser error                                                                                   |
+| `ORIGIN`           | Full origin with `https://`         | Passkeys fail; CSRF rejects your own forms                                                                                   |
+| `JWT_EXPIRY`       | **Seconds** (`86400` = 24h)         | A millisecond value (`86400000`) gives a ~2.7 **year** session                                                               |
+| `SESSION_DURATION` | **Milliseconds** (`86400000` = 24h) | A seconds value (`86400`) expires every session ~86s after sign-in. `validateAuthConfig` now refuses anything under a minute |
+| `ROLES_DEFAULT`    | A role listed in `ROLES_AVAILABLE`  | Registration throws at runtime                                                                                               |
 
 `SESSION_DURATION` and `LOCKOUT_DURATION` are milliseconds; `JWT_EXPIRY` is
 seconds. Nothing can validate a plausible-looking number, so check it by hand.

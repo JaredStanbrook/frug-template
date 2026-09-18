@@ -15,6 +15,18 @@ const base64UrlString = z.string().regex(/^[a-zA-Z0-9_-]+$/, "Invalid Base64URL"
 export const users = sqliteTable("users", {
   id: text("id").primaryKey().$defaultFn(genId),
   username: text("username").unique(),
+
+  /**
+   * Always stored lowercased — `normaliseEmail` in the auth service is the one
+   * gate, and every read and write goes through it.
+   *
+   * SQLite compares text case-sensitively, so without that rule
+   * `Jared@example.com` and `jared@example.com` are two different accounts:
+   * this unique index happily permits both, and signing in with the wrong
+   * capitalisation of your own address answers "Invalid credentials" with no
+   * hint as to why. Normalising on the way in makes the index mean what it
+   * appears to mean.
+   */
   email: text("email").unique(),
   displayName: text("display_name"),
 

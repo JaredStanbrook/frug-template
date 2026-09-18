@@ -5,6 +5,8 @@
  * All auth behavior is driven by Cloudflare Workers environment bindings
  */
 
+import { DEFAULT_PBKDF2_ITERATIONS } from "../lib/crypto";
+
 export type AuthMethod = "passkey" | "password" | "pin" | "totp" | "email" | "sms";
 
 export interface AuthConfig {
@@ -22,6 +24,8 @@ export interface AuthConfig {
     allowedEmails: string[];
     jwtSecret: string;
     jwtExpiry: number;
+    /** PBKDF2 rounds for new password hashes — see DEFAULT_PBKDF2_ITERATIONS. */
+    hashIterations: number;
   };
   password?: {
     minLength: number;
@@ -129,6 +133,7 @@ export function parseAuthConfig(env: any): AuthConfig {
       // app before an empty one can be used.
       jwtSecret: env.JWT_SECRET ?? "",
       jwtExpiry: parseInt(env.JWT_EXPIRY) || 7 * 24 * 60 * 60,
+      hashIterations: parseInt(env.PASSWORD_HASH_ITERATIONS) || DEFAULT_PBKDF2_ITERATIONS,
     },
     roles: {
       available: rolesAvailable,
@@ -141,14 +146,24 @@ export function parseAuthConfig(env: any): AuthConfig {
     },
   };
 
-  // Password configuration (only if enabled)
+  // Password configuration (only if enabled).
+  //
+  // The defaults follow NIST SP 800-63B: length is the requirement that
+  // matters, and composition rules are off unless asked for. Demanding an
+  // uppercase, a digit and a symbol does not buy much entropy — it reliably
+  // produces "Password1!" — while pushing people towards reuse and sticky
+  // notes. A longer minimum is worth more than all four classes together.
+  //
+  // These defaults used to be `!== "false"`, so every rule was on and none of
+  // them was enforced anywhere. Opt in by setting the variable to "true" if a
+  // compliance checklist demands it.
   if (methods.has("password")) {
     config.password = {
-      minLength: parseInt(env.PASSWORD_MIN_LENGTH || "8"),
-      requireUppercase: env.PASSWORD_REQUIRE_UPPERCASE !== "false",
-      requireLowercase: env.PASSWORD_REQUIRE_LOWERCASE !== "false",
-      requireNumbers: env.PASSWORD_REQUIRE_NUMBERS !== "false",
-      requireSpecialChars: env.PASSWORD_REQUIRE_SPECIAL !== "false",
+      minLength: parseInt(env.PASSWORD_MIN_LENGTH || "12"),
+      requireUppercase: env.PASSWORD_REQUIRE_UPPERCASE === "true",
+      requireLowercase: env.PASSWORD_REQUIRE_LOWERCASE === "true",
+      requireNumbers: env.PASSWORD_REQUIRE_NUMBERS === "true",
+      requireSpecialChars: env.PASSWORD_REQUIRE_SPECIAL === "true",
     };
   }
 
@@ -205,6 +220,27 @@ export function validateAuthConfig(env: any): { valid: boolean; errors: string[]
 
   if (!env.JWT_SECRET) {
     errors.push("JWT_SECRET must be set as a Secret on the Worker (see docs/deploy.md).");
+  }
+
+  // SESSION_DURATION is milliseconds, and the neighbouring JWT_EXPIRY is
+  // seconds — so "86400" in the wrong box is a plausible-looking number that
+  // expires every session 86 seconds after it opens. Nothing else can catch
+  // that: it is a valid integer, and the app simply signs everybody out over
+  // and over. A minute is far below any sane session and safely above any
+  // millisecond value a person would choose on purpose.
+  if (config.session.duration > 0 && config.session.duration < 60_000) {
+    errors.push(
+      `SESSION_DURATION is ${config.session.duration}ms (~${Math.round(
+        config.session.duration / 1000,
+      )}s), which signs users out almost immediately. It is in milliseconds — 86400000 is a day.`,
+    );
+  }
+
+  if (config.session.renewalThreshold > config.session.duration) {
+    errors.push(
+      "SESSION_RENEWAL_THRESHOLD is longer than SESSION_DURATION, so every session renews on " +
+        "first use and never expires.",
+    );
   }
 
   // Method Validation

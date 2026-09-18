@@ -34,6 +34,7 @@ const createAuthConfig = (methods: string[] = ["password"]): AuthConfig => ({
     allowedEmails: [],
     jwtSecret: "test",
     jwtExpiry: 3600,
+    hashIterations: 1000,
   },
   roles: {
     available: ["user", "admin"],

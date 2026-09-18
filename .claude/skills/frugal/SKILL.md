@@ -269,8 +269,19 @@ Two authorisation layers, answering different questions: guards
 reaches the router at all; `AccessControl.authorize(user, resource, action,
 ownerId?)` decides whether they may touch a specific row.
 
-Four properties the auth service already holds, worth not undoing. They are
-covered by `tests/auth.test.ts`, so a change that breaks one will say so:
+Sessions are rows in the `sessions` table, named by the `jti` claim in the
+cookie's JWT. The signature proves the token is ours; the row decides whether
+it is still live, which is what makes `auth.revokeSession(id)`,
+`auth.revokeAllSessions(userId, { except })` and a real "sign out everywhere"
+possible at all. `auth.listSessions(userId)` backs a "where am I signed in"
+screen. A signature on its own cannot be taken back.
+
+**Anything that revokes must be awaited** — `destroySession()` writes to the
+database now, and a dropped promise leaves a "signed out" user whose token
+still works.
+
+Properties the auth service holds, worth not undoing. All are covered by
+`tests/auth.test.ts`, so a change that breaks one will say so:
 
 - **Roles come from the database on every request.** The session token carries
   a `role` claim and nothing reads it, so a stale or tampered claim grants
@@ -283,6 +294,17 @@ covered by `tests/auth.test.ts`, so a change that breaks one will say so:
   message, and the same time spent, since a missing user is still verified
   against a dummy hash. Returning early there turns the form into a way to
   test whether an address has an account.
+- **Signing out revokes the session**, changing a password ends every *other*
+  session, and a reset ends all of them.
+- **Emails are stored and compared lowercased**, via `normaliseEmail`. SQLite
+  compares text case-sensitively, so skipping it lets one mailbox become two
+  accounts and locks people out of their own.
+- **Password hashes carry their cost** (`pbkdf2-sha256$rounds$salt$hash`) and
+  are re-hashed on sign-in when it is raised, so `PASSWORD_HASH_ITERATIONS` can
+  go up without a reset for anybody.
+- **The password policy is enforced in one place** (`assertPasswordPolicy`) and
+  the register form is told the same numbers, so the form cannot advertise a
+  rule the server does not apply.
 
 Feedback: `htmxToast(c, msg)` when the response itself renders,
 `flashToast(c, msg)` when you are about to `c.redirect(...)` — it survives the

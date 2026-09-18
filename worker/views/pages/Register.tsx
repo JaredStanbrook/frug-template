@@ -7,18 +7,23 @@ import {
   AuthField,
   AuthHeading,
   AuthNote,
+  describePasswordPolicy,
   gridColsFor,
 } from "./authParts";
+import type { PasswordPolicy } from "./authParts";
 
 export interface RegisterProps {
   methods: string[];
   roles: readonly string[];
   defaultRole: string;
   csrfToken?: string;
+  passwordPolicy?: PasswordPolicy;
 }
 
 export const Register: FC<RegisterProps> = (props) => {
-  const { methods, roles, defaultRole, csrfToken } = props;
+  const { methods, roles, defaultRole, csrfToken, passwordPolicy } = props;
+  const minLength = passwordPolicy?.minLength ?? 8;
+  const policyHint = describePasswordPolicy(passwordPolicy);
 
   const hasPassword = methods.includes("password");
   const hasPin = methods.includes("pin");
@@ -40,6 +45,7 @@ export const Register: FC<RegisterProps> = (props) => {
           class="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[400px] p-8 border rounded-lg shadow-xl bg-card text-card-foreground"
           default-tab={defaultTab}
           csrf-token={csrfToken || ""}
+          min-password-length={minLength}
           hx-disable="true"
         >
           <AuthHeading title="Create Account" sub="Get started with our platform" />
@@ -108,10 +114,16 @@ export const Register: FC<RegisterProps> = (props) => {
                     name="password"
                     type="password"
                     required
-                    minlength={8}
+                    minlength={minLength}
+                    aria-describedby={policyHint ? "password-policy" : undefined}
                     class={AUTH_INPUT}
                     placeholder="••••••••"
                   />
+                  {policyHint ? (
+                    <p id="password-policy" class="text-xs text-muted-foreground">
+                      {policyHint}
+                    </p>
+                  ) : null}
                 </AuthField>
 
                 <AuthField id="confirmPassword" label="Confirm Password">
@@ -120,7 +132,7 @@ export const Register: FC<RegisterProps> = (props) => {
                     name="confirmPassword"
                     type="password"
                     required
-                    minlength={8}
+                    minlength={minLength}
                     class={AUTH_INPUT}
                     placeholder="••••••••"
                   />
