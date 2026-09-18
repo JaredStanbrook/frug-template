@@ -40,6 +40,18 @@ const JWT_ALG = "HS256" as const;
 const CHALLENGE_PREFIX = "challenge:";
 const CHALLENGE_TTL = 300; // 5 minutes
 
+/**
+ * A well-formed hash that no password matches, verified against when the
+ * account does not exist.
+ *
+ * Without it, an unknown identifier returns immediately while a known one
+ * pays for a 100,000-iteration PBKDF2 — a timing difference large enough to
+ * read over the network, which turns the login form into an oracle for
+ * "is this person a user here". The error message is identical either way;
+ * this makes the clock match the message.
+ */
+const ABSENT_USER_HASH = "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
 export class Auth {
   private db: any;
   private kv: KVNamespace;
@@ -214,6 +226,13 @@ export class Auth {
         return { user: null };
       }
 
+      // Deactivating an account has to end the sessions it already has, or it
+      // only stops the next sign-in — someone already holding a token keeps
+      // full access until it expires, which can be days.
+      if (!user.isActive) {
+        return { user: null };
+      }
+
       // 3. Strip secrets and hydrate roles/permissions
       const safeUser = await this.toSafeUser(user);
 
@@ -226,8 +245,11 @@ export class Auth {
 
       return { user: safeUser };
     } catch (e) {
-      // Token expired, signature invalid, or DB error
-      console.error("Session validation failed", e);
+      // An expired token is the normal end of a session, not a fault. Logging
+      // it at error level fills the log with routine events and teaches you to
+      // scroll past the line that does matter.
+      const expired = e instanceof Error && /expired/i.test(e.name + e.message);
+      if (!expired) console.error("Session validation failed", e);
       return { user: null };
     }
   }
@@ -248,7 +270,12 @@ export class Auth {
     setCookie(this.c, "auth_token", token, {
       httpOnly: true,
       secure: isHttps,
-      sameSite: isHttps ? "Strict" : "Lax",
+      // Lax, not Strict. Strict withholds the cookie on any cross-site
+      // navigation, so following a link to the app from an email or a chat
+      // lands the user on a signed-out page even though their session is
+      // live — they sign in again, or conclude it is broken. Cross-site POSTs
+      // are already refused by the origin check on the auth API.
+      sameSite: "Lax",
       path: "/",
       maxAge: expiresIn,
     });
@@ -402,15 +429,22 @@ export class Auth {
   // LOGIN METHODS
   // ==========================================
 
-  private async handleFailedLogin(userId: string) {
+  private async handleFailedLogin(userId: string, method: string = "unknown") {
     const user = await this.db.select().from(users).where(eq(users.id, userId)).get();
     if (!user) return;
 
-    const attempts = (user.failedLoginAttempts || 0) + 1;
     const maxAttempts = this.authConfig.security.maxFailedAttempts || 5;
     const lockoutDuration = this.authConfig.security.lockoutDuration || 900000;
 
-    const updateData: any = { failedLoginAttempts: attempts };
+    // A lockout that has run its course clears the count with it. Otherwise the
+    // counter stays at the maximum for ever after the first lockout, and every
+    // single later typo re-locks the account for the full duration — the
+    // second offence is punished harder than the first, which is not what a
+    // "five attempts" policy says.
+    const lockExpired = !!user.lockedUntil && new Date(user.lockedUntil) <= new Date();
+    const attempts = (lockExpired ? 0 : user.failedLoginAttempts || 0) + 1;
+
+    const updateData: any = { failedLoginAttempts: attempts, lockedUntil: null };
 
     if (attempts >= maxAttempts) {
       updateData.lockedUntil = new Date(Date.now() + lockoutDuration).toISOString();
@@ -418,13 +452,7 @@ export class Auth {
 
     await this.db.update(users).set(updateData).where(eq(users.id, userId));
 
-    // We manually use insert here if we want to log the failure specifically outside the logAuthEvent wrapper
-    // or just use logAuthEvent as defined
-    await this.logAuthEvent({
-      userId,
-      event: "failed_login",
-      method: "unknown", // Can be passed in if needed, but 'unknown' or generic is fine for shared handler
-    });
+    await this.logAuthEvent({ userId, event: "failed_login", method });
   }
 
   async loginWithPassword(identifier: string, password: string, totpCode?: string) {
@@ -437,7 +465,13 @@ export class Auth {
       .where(or(eq(users.username, identifier), eq(users.email, identifier)))
       .get();
 
-    if (!user) throw new Error("Invalid credentials");
+    if (!user) {
+      // Spend the same time as a real verify — see ABSENT_USER_HASH.
+      await verifyPassword(password, ABSENT_USER_HASH);
+      throw new Error("Invalid credentials");
+    }
+
+    if (!user.isActive) throw new Error("Invalid credentials");
 
     if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
       throw new Error("Account is temporarily locked");
@@ -446,17 +480,27 @@ export class Auth {
     const isValid = await verifyPassword(password, user.passwordHash || "");
 
     if (!isValid) {
-      await this.handleFailedLogin(user.id);
+      await this.handleFailedLogin(user.id, "password");
       throw new Error("Invalid credentials");
     }
+
     if (user.totpEnabled) {
       if (!totpCode) {
         throw new Error("TOTP_REQUIRED");
       }
 
-      const isValid = this.verifyTotpCode(user.totpSecret, totpCode);
-      if (!isValid) throw new Error("Invalid 2FA Code");
+      // A wrong second factor is a failed login like any other. It used to
+      // throw straight out, so an attacker holding the password could guess
+      // the six digits for ever: no counter, no lockout, and nothing in the
+      // auth log to show it happened. The lockout only defended the factor
+      // that had already been broken.
+      const isTotpValid = this.verifyTotpCode(user.totpSecret, totpCode);
+      if (!isTotpValid) {
+        await this.handleFailedLogin(user.id, "totp");
+        throw new Error("Invalid 2FA Code");
+      }
     }
+
     await this.db
       .update(users)
       .set({
@@ -486,7 +530,12 @@ export class Auth {
       .where(or(eq(users.username, identifier), eq(users.email, identifier)))
       .get();
 
-    if (!user || !user.pin) throw new Error("Invalid credentials");
+    if (!user || !user.pin) {
+      await verifyPassword(pin, ABSENT_USER_HASH);
+      throw new Error("Invalid credentials");
+    }
+
+    if (!user.isActive) throw new Error("Invalid credentials");
 
     if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
       throw new Error("Account is temporarily locked");
@@ -495,7 +544,7 @@ export class Auth {
     const isValid = await verifyPassword(pin, user.pin);
 
     if (!isValid) {
-      await this.handleFailedLogin(user.id);
+      await this.handleFailedLogin(user.id, "pin");
       throw new Error("Invalid credentials");
     }
 
@@ -530,13 +579,15 @@ export class Auth {
 
     if (!user || !user.totpSecret) throw new Error("Invalid credentials");
 
+    if (!user.isActive) throw new Error("Invalid credentials");
+
     if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
       throw new Error("Account is temporarily locked");
     }
     const isValid = this.verifyTotpCode(user.totpSecret, totpCode);
 
     if (!isValid) {
-      await this.handleFailedLogin(user.id);
+      await this.handleFailedLogin(user.id, "totp");
       throw new Error("Invalid TOTP code");
     }
 

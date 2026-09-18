@@ -117,9 +117,15 @@ if (changed.length === 0) { /* say so; do not swap it away */ }
 ```
 
 **`tests/utils/fakeDb.ts` ignores `where` clauses.** It is a shape stub for
-render tests and nothing more. A passing test against it says nothing about
-ownership scoping or filtering, so never verify an isolation rule with it —
-those need real D1 (`npm run migrate:local`, then query it).
+render tests and nothing more: it returns the same rows whatever you ask for,
+so "the wrong password is refused" or "you cannot read someone else's row"
+passes against it no matter how broken the query is.
+
+Use `tests/utils/createRealDb()` for anything where the point _is_ the `where`
+— auth, ownership scoping, filtering. It applies the real `drizzle/*.sql`
+migrations to an in-memory SQLite through `node:sqlite`, so the schema under
+test is the one that ships, and it needs no dependency and no running Worker.
+`tests/auth.test.ts` is the worked example.
 
 **A summary seeded from the child table hides its empty members.** Building a
 per-owner view from child rows drops every owner that has none, so a freshly
@@ -262,6 +268,21 @@ Two authorisation layers, answering different questions: guards
 (`requireUser`, `requireRole`, `requirePermission`) decide whether the user
 reaches the router at all; `AccessControl.authorize(user, resource, action,
 ownerId?)` decides whether they may touch a specific row.
+
+Four properties the auth service already holds, worth not undoing. They are
+covered by `tests/auth.test.ts`, so a change that breaks one will say so:
+
+- **Roles come from the database on every request.** The session token carries
+  a `role` claim and nothing reads it, so a stale or tampered claim grants
+  nothing.
+- **Nothing leaves the service carrying a credential.** `toSafeUser()` is the
+  only exit; it strips `passwordHash`, `pin` and `totpSecret`.
+- **Every failed factor costs an attempt**, the second factor included, and the
+  lockout refuses the correct password too.
+- **A wrong password and an unknown account are indistinguishable** — same
+  message, and the same time spent, since a missing user is still verified
+  against a dummy hash. Returning early there turns the form into a way to
+  test whether an address has an account.
 
 Feedback: `htmxToast(c, msg)` when the response itself renders,
 `flashToast(c, msg)` when you are about to `c.redirect(...)` — it survives the
