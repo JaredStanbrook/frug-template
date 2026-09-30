@@ -184,10 +184,12 @@
     "PASSWORD_REQUIRE_NUMBERS": "false",
     "PASSWORD_REQUIRE_SPECIAL": "false",
 
-    // PBKDF2 rounds for new password hashes. Raising this is safe and
-    // self-applying: the cost is stored with each hash, and accounts are
-    // re-hashed as their owners next sign in. See worker/lib/crypto.ts.
-    "PASSWORD_HASH_ITERATIONS": "210000",
+    // PBKDF2 rounds for new password hashes. 100000 is the MAXIMUM: Workers'
+    // WebCrypto refuses anything higher, and every sign-in then fails with
+    // "iteration counts above 100000 are not supported". Higher values are
+    // clamped to it. Each hash records its own cost, so lowering this never
+    // breaks existing passwords. See worker/lib/crypto.ts.
+    "PASSWORD_HASH_ITERATIONS": "100000",
 
     // --- PIN CONFIG ---
     "PIN_LENGTH": "6",

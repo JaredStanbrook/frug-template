@@ -24,21 +24,30 @@ export function randomBase64Url(byteLength: number = 32): string {
 }
 
 /**
- * How many PBKDF2 rounds a new password hash gets.
+ * The most PBKDF2 rounds the Workers runtime will run.
  *
- * OWASP's current advice for PBKDF2-SHA256 is 600,000. This template runs on
- * Workers, where every round is CPU charged to the request and a sign-in has
- * to finish inside the plan's CPU budget — 600,000 rounds is roughly a quarter
- * of a second of pure compute per login. 210,000 is the compromise: a little
- * over twice the work this used to do, comfortably inside that budget.
- *
- * It is not a permanent choice, which is the point of the format below. The
- * stored hash records the cost it was made with, `needsRehash` reports when one
- * is behind, and the auth service re-hashes on the next successful sign-in — so
- * raising this number upgrades every active account on its own, with no reset
- * emails and no downtime. Set PASSWORD_HASH_ITERATIONS to override it.
+ * Cloudflare's WebCrypto rejects anything higher outright — "iteration counts
+ * above 100000 are not supported" — so a larger number does not make hashes
+ * stronger, it makes every sign-up and sign-in fail. Node allows more, which
+ * is why tests alone never caught it: they passed at 210,000 while production
+ * refused to hash a single password.
  */
-export const DEFAULT_PBKDF2_ITERATIONS = 210_000;
+export const MAX_PBKDF2_ITERATIONS = 100_000;
+
+/**
+ * How many PBKDF2 rounds a new password hash gets: the most the runtime
+ * allows.
+ *
+ * OWASP's advice for PBKDF2-SHA256 is 600,000, which Workers cannot do. The
+ * format below still records the cost with each hash, and `needsRehash`
+ * reports when one is behind, so if the runtime limit is ever raised, raising
+ * this upgrades every active account on its next sign-in with no resets.
+ */
+export const DEFAULT_PBKDF2_ITERATIONS = MAX_PBKDF2_ITERATIONS;
+
+/** Keep a configured cost inside what the runtime can actually run. */
+export const clampIterations = (iterations: number) =>
+  Math.min(Math.max(1, Math.floor(iterations)), MAX_PBKDF2_ITERATIONS);
 
 /** What the legacy `salt.hash` format was always hashed with. */
 const LEGACY_ITERATIONS = 100_000;
@@ -103,11 +112,14 @@ export async function hashPassword(
   password: string,
   iterations: number = DEFAULT_PBKDF2_ITERATIONS,
 ): Promise<string> {
+  // Clamped here as well as in config: this is the last line before the
+  // runtime, and above the limit it throws rather than hashing.
+  const rounds = clampIterations(iterations);
   const salt = new Uint8Array(16);
   crypto.getRandomValues(salt);
 
-  const hash = await derive(password, salt, iterations);
-  return `pbkdf2-sha256$${iterations}$${toBase64Url(salt)}$${hash}`;
+  const hash = await derive(password, salt, rounds);
+  return `pbkdf2-sha256$${rounds}$${toBase64Url(salt)}$${hash}`;
 }
 
 /**
@@ -138,7 +150,7 @@ export function needsRehash(
 ): boolean {
   const parsed = parseHash(stored);
   if (!parsed) return false;
-  return parsed.iterations < iterations;
+  return parsed.iterations < clampIterations(iterations);
 }
 
 /**

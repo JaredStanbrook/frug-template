@@ -301,7 +301,11 @@ Properties the auth service holds, worth not undoing. All are covered by
   accounts and locks people out of their own.
 - **Password hashes carry their cost** (`pbkdf2-sha256$rounds$salt$hash`) and
   are re-hashed on sign-in when it is raised, so `PASSWORD_HASH_ITERATIONS` can
-  go up without a reset for anybody.
+  go up without a reset for anybody — **but never above 100,000.** Workers'
+  WebCrypto refuses PBKDF2 past that ("iteration counts above 100000 are not
+  supported"), so every sign-up and sign-in fails. Node does not enforce it, so
+  the tests pass regardless; `tests/crypto.test.ts` pins the limit, and config
+  clamps higher values.
 - **The password policy is enforced in one place** (`assertPasswordPolicy`) and
   the register form is told the same numbers, so the form cannot advertise a
   rule the server does not apply.
