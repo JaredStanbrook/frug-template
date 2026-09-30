@@ -165,3 +165,7 @@ chips, 8px for paper, round for the tick. Shadows only on things that float
   petals. It grows left to right at an even pace (linear draw) so each leaf
   appears as the tip reaches it. On phones it keeps its size and shows the
   first stretch (`slice`) rather than shrinking to a thread.
+- **Back to pass 3.** Having seen the spring tangle and the long garland, the
+  client chose the first star jasmine: the single vine beside the greeting.
+  The vine, its CSS and the Today header are restored exactly as they were in
+  pass 3. The two later passes stay in the history as ideas already tried.

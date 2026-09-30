@@ -180,77 +180,89 @@ export const FloralRule = ({ class: cls = "" }: { class?: string }) => (
 );
 
 // ==========================================
-// STAR JASMINE GARLAND
+// STAR JASMINE
 // ==========================================
 //
-// The one memorable thing in the app (docs/design.md): a single long spray of
-// star jasmine running the width of the page under the greeting, like a
-// garland border in an old book. Neat on purpose — one stem in an even wave,
-// leaf pairs at regular intervals, five flower clusters evenly spaced and
-// alternating above and below the stem.
+// The one memorable thing in the app (docs/design.md): a star jasmine vine
+// that grows up beside the greeting on Today. The stem draws itself in, each
+// pair of leaves unfurls as the growing tip passes it, tendrils curl out, and
+// the pinwheel flowers open last with a quarter-turn — the way star jasmine
+// petals are twisted.
 //
-// It grows from left to right: the stem draws in, each leaf pair unfurls as
-// the tip passes it, and each cluster opens once the stem has reached it, with
-// the quarter-turn of star jasmine's twisted petals. Every part carries `--t`,
-// the second at which it appears. Skipped under prefers-reduced-motion (see
-// index.css), which shows the finished garland.
+// Every part carries `--at`: how far along the vine it sits, from 0 at the
+// root to 1 at the tip. The CSS turns that into a delay, so a leaf appears
+// exactly when the stem reaches it. Leaf positions and angles are computed from
+// the vine's own curve, so they sit on the stem rather than near it. All of it
+// is skipped under prefers-reduced-motion (see index.css).
 
 type Pt = [number, number];
-type Seg = [Pt, Pt, Pt, Pt];
 
-/** Width and height of the drawing, in viewBox units. */
-const W = 1000;
-const H = 150;
-const MID = 78;
-const SWING = 16;
-/** Seconds for the stem to grow from end to end. */
-const GROW = 3;
+/** The main vine: an S climbing from the pot line to the top right. */
+const VINE: [Pt, Pt, Pt, Pt][] = [
+  [
+    [70, 296],
+    [30, 250],
+    [170, 232],
+    [138, 180],
+  ],
+  [
+    [138, 180],
+    [110, 136],
+    [40, 118],
+    [96, 72],
+  ],
+  [
+    [96, 72],
+    [128, 46],
+    [178, 58],
+    [196, 22],
+  ],
+];
 
-/** An even wave: crests and troughs every 125 units, level tangents at each. */
-const WAVE: Seg[] = Array.from({ length: 8 }, (_, i) => {
-  const x0 = 12 + i * 122;
-  const x1 = x0 + 122;
-  const y0 = MID + (i % 2 === 0 ? -SWING : SWING);
-  const y1 = MID + (i % 2 === 0 ? SWING : -SWING);
-  return [
-    [x0, y0],
-    [x0 + 48, y0],
-    [x1 - 48, y1],
-    [x1, y1],
-  ];
-});
+const vinePath = `M${VINE[0][0].join(" ")}${VINE.map(([, c1, c2, e]) => `C${c1.join(" ")} ${c2.join(" ")} ${e.join(" ")}`).join("")}`;
 
-/** Point and heading (degrees) at `u` ∈ [0, 1] along the wave. */
-const along = (u: number) => {
-  const scaled = Math.min(Math.max(u, 0), 0.9999) * WAVE.length;
-  const [p0, p1, p2, p3] = WAVE[Math.floor(scaled)];
+/** Point and heading (degrees) at `u` ∈ [0, 1] along the whole vine. */
+const along = (u: number): { p: Pt; deg: number } => {
+  const scaled = Math.min(u, 0.9999) * VINE.length;
+  const [p0, p1, p2, p3] = VINE[Math.floor(scaled)];
   const t = scaled - Math.floor(scaled);
   const mt = 1 - t;
   const point = (i: 0 | 1) =>
     mt * mt * mt * p0[i] + 3 * mt * mt * t * p1[i] + 3 * mt * t * t * p2[i] + t * t * t * p3[i];
   const slope = (i: 0 | 1) =>
     3 * mt * mt * (p1[i] - p0[i]) + 6 * mt * t * (p2[i] - p1[i]) + 3 * t * t * (p3[i] - p2[i]);
-  return { p: [point(0), point(1)] as Pt, deg: (Math.atan2(slope(1), slope(0)) * 180) / Math.PI };
+  return {
+    p: [point(0), point(1)],
+    deg: (Math.atan2(slope(1), slope(0)) * 180) / Math.PI,
+  };
 };
 
-const WAVE_PATH = `M${WAVE[0][0].join(" ")}${WAVE.map(([, a, b, c]) => `C${a.join(" ")} ${b.join(" ")} ${c.join(" ")}`).join("")}`;
-
 const f = (n: number) => n.toFixed(1);
-const when = (t: number) => `--t:${t.toFixed(2)}`;
-/** The stem reaches `u` at this second. */
-const reach = (u: number) => u * GROW;
+const at = (u: number) => `--at:${u.toFixed(3)}`;
 
 /** A glossy elliptic leaf with a pale midrib, pointing along +x from its base. */
-const JasmineLeaf = ({ p, deg, scale, t }: { p: Pt; deg: number; scale: number; t: number }) => (
-  <g transform={`translate(${f(p[0])} ${f(p[1])}) rotate(${f(deg)}) scale(${scale.toFixed(2)})`}>
-    <g class="grow" style={when(t)}>
+const JasmineLeaf = ({
+  x,
+  y,
+  deg,
+  scale,
+  u,
+}: {
+  x: number;
+  y: number;
+  deg: number;
+  scale: number;
+  u: number;
+}) => (
+  <g transform={`translate(${f(x)} ${f(y)}) rotate(${f(deg)}) scale(${scale.toFixed(2)})`}>
+    <g class="grow" style={at(u)}>
       <path d="M0 0C4-5.5 13-7 21 0 13 7 4 5.5 0 0Z" class="fill-chart-2" />
       <path
         d="M1 0H17"
         class="stroke-background"
         stroke-width="0.9"
         stroke-linecap="round"
-        opacity="0.5"
+        opacity="0.55"
       />
     </g>
   </g>
@@ -260,18 +272,20 @@ const JasmineLeaf = ({ p, deg, scale, t }: { p: Pt; deg: number; scale: number; 
 const PETAL = "M0-1.6C1.6-4 6.2-7.2 5.7-11.3 4.2-13.8.2-12.8-.7-9.8-1.4-7.2-1-4-0-1.6Z";
 
 const JasmineFlower = ({
-  p,
-  scale,
-  turn,
-  t,
+  x,
+  y,
+  scale = 1,
+  turn = 0,
+  u,
 }: {
-  p: Pt;
-  scale: number;
-  turn: number;
-  t: number;
+  x: number;
+  y: number;
+  scale?: number;
+  turn?: number;
+  u: number;
 }) => (
-  <g transform={`translate(${f(p[0])} ${f(p[1])}) rotate(${turn}) scale(${scale})`}>
-    <g class="open" style={when(t)}>
+  <g transform={`translate(${f(x)} ${f(y)}) rotate(${turn}) scale(${scale})`}>
+    <g class="open" style={at(u)}>
       {[0, 72, 144, 216, 288].map((a) => (
         <path
           d={PETAL}
@@ -286,9 +300,9 @@ const JasmineFlower = ({
   </g>
 );
 
-const JasmineBud = ({ p, deg, t }: { p: Pt; deg: number; t: number }) => (
-  <g transform={`translate(${f(p[0])} ${f(p[1])}) rotate(${deg})`}>
-    <g class="grow" style={when(t)}>
+const JasmineBud = ({ x, y, deg, u }: { x: number; y: number; deg: number; u: number }) => (
+  <g transform={`translate(${f(x)} ${f(y)}) rotate(${deg})`}>
+    <g class="grow" style={at(u)}>
       <path
         d="M0 0C2.4-3 2.6-8.5 0-12-2.6-8.5-2.4-3 0 0Z"
         class="fill-blossom stroke-chart-2"
@@ -299,48 +313,70 @@ const JasmineBud = ({ p, deg, t }: { p: Pt; deg: number; t: number }) => (
   </g>
 );
 
-/** Leaf pairs at a steady rhythm, a touch smaller towards either end. */
-const LEAF_STEP = 1 / 36;
-const LEAVES = Array.from({ length: 35 }, (_, i) => (i + 0.6) * LEAF_STEP).flatMap((u) => {
-  const { p, deg } = along(u);
-  const taper = 1 - Math.abs(u - 0.5) * 0.5;
-  const t = reach(u);
-  return [
-    { p, deg: deg - 52, scale: 1.05 * taper, t },
-    { p, deg: deg + 52, scale: 1.05 * taper, t: t + 0.04 },
-  ];
-});
+/** A cluster of flowers and buds at the end of a stem. */
+const Cluster = ({
+  x,
+  y,
+  u,
+  flip = false,
+}: {
+  x: number;
+  y: number;
+  u: number;
+  flip?: boolean;
+}) => {
+  const s = flip ? -1 : 1;
+  return (
+    <g>
+      <JasmineBud x={x - 9 * s} y={y + 8} deg={-150 * s} u={u + 0.02} />
+      <JasmineBud x={x + 15 * s} y={y + 9} deg={130 * s} u={u + 0.05} />
+      <JasmineFlower x={x} y={y} scale={1.25} turn={10} u={u} />
+      <JasmineFlower x={x + 17 * s} y={y - 5} scale={1.05} turn={40} u={u + 0.04} />
+      <JasmineFlower x={x - 13 * s} y={y - 11} scale={0.95} turn={-20} u={u + 0.07} />
+      <JasmineFlower x={x + 5 * s} y={y + 16} scale={0.85} turn={70} u={u + 0.1} />
+    </g>
+  );
+};
 
-/**
- * Five clusters, evenly spaced and alternating sides. Each is the same tidy
- * arrangement — a centre flower, two either side, two buds — on a short stalk.
- */
-const CLUSTERS = [0.1, 0.3, 0.5, 0.7, 0.9].map((u, i) => {
-  const side = i % 2 === 0 ? -1 : 1; // -1 above the stem, 1 below
+/** A side stem leaving the vine at `u`, ending in a flower cluster. */
+const Branch = ({ u, end, bend }: { u: number; end: Pt; bend: Pt }) => {
   const { p } = along(u);
-  const end: Pt = [p[0] + 6, p[1] + side * 34];
-  const t = reach(u) + 0.25;
-  return {
-    stalk: {
-      d: `M${f(p[0])} ${f(p[1])}Q${f(p[0] - 4)} ${f(p[1] + side * 18)} ${f(end[0])} ${f(end[1])}`,
-      t: reach(u),
-    },
-    flowers: [
-      { p: end, scale: 1.35, turn: 8, t },
-      { p: [end[0] - 18, end[1] + side * 5] as Pt, scale: 1.05, turn: 40, t: t + 0.12 },
-      { p: [end[0] + 18, end[1] + side * 5] as Pt, scale: 1.05, turn: -24, t: t + 0.18 },
-    ],
-    buds: [
-      { p: [end[0] - 9, end[1] + side * 13] as Pt, deg: side === -1 ? -25 : 205, t: t - 0.05 },
-      { p: [end[0] + 10, end[1] + side * 13] as Pt, deg: side === -1 ? 25 : 155, t: t - 0.02 },
-    ],
-  };
-});
+  return (
+    <path
+      class="stem stroke-chart-2"
+      pathLength="1"
+      style={`${at(u)};--dur:0.7s`}
+      d={`M${f(p[0])} ${f(p[1])}Q${bend.join(" ")} ${end.join(" ")}`}
+      stroke-width="1.8"
+      stroke-linecap="round"
+    />
+  );
+};
 
-export const StarJasmine = ({ class: cls = "w-full" }: { class?: string }) => (
+/** A tendril curling off the stem at `u`, on one side or the other. */
+const Tendril = ({ u, side }: { u: number; side: 1 | -1 }) => {
+  const { p, deg } = along(u);
+  return (
+    <g transform={`translate(${f(p[0])} ${f(p[1])}) rotate(${f(deg + 90 * side)})`}>
+      <path
+        class="stem stroke-chart-2"
+        pathLength="1"
+        style={`${at(u)};--dur:0.9s`}
+        d="M0 0C7-1 13 3 12 9 11 14 4 14 4 9 4 6 8 5 9 8"
+        stroke-width="1.1"
+        stroke-linecap="round"
+        fill="none"
+      />
+    </g>
+  );
+};
+
+/** Opposite pairs of leaves, smaller towards the growing tip. */
+const LEAF_NODES = [0.07, 0.17, 0.27, 0.4, 0.52, 0.64, 0.76, 0.87];
+
+export const StarJasmine = ({ class: cls = "h-72 w-60" }: { class?: string }) => (
   <svg
-    viewBox={`0 0 ${W} ${H}`}
-    preserveAspectRatio="xMinYMid slice"
+    viewBox="0 0 260 300"
     class={`jasmine ${cls}`}
     aria-hidden="true"
     focusable="false"
@@ -349,25 +385,30 @@ export const StarJasmine = ({ class: cls = "w-full" }: { class?: string }) => (
     <path
       class="stem stroke-chart-2"
       pathLength="1"
-      style={`--t:0;--dur:${GROW}s`}
-      d={WAVE_PATH}
-      stroke-width="2.4"
+      style="--at:0;--dur:2.4s"
+      d={vinePath}
+      stroke-width="2.6"
       stroke-linecap="round"
     />
-    {CLUSTERS.map((c) => (
-      <path
-        class="stem stroke-chart-2"
-        pathLength="1"
-        style={`${when(c.stalk.t)};--dur:0.35s`}
-        d={c.stalk.d}
-        stroke-width="1.6"
-        stroke-linecap="round"
-      />
-    ))}
-    {LEAVES.map((l) => (
-      <JasmineLeaf {...l} />
-    ))}
-    {CLUSTERS.flatMap((c) => c.buds.map((b) => <JasmineBud {...b} />))}
-    {CLUSTERS.flatMap((c) => c.flowers.map((fl) => <JasmineFlower {...fl} />))}
+
+    <Branch u={0.33} bend={[196, 150]} end={[212, 118]} />
+    <Branch u={0.6} bend={[46, 104]} end={[42, 70]} />
+
+    <Tendril u={0.22} side={-1} />
+    <Tendril u={0.47} side={1} />
+    <Tendril u={0.8} side={-1} />
+
+    {LEAF_NODES.flatMap((u) => {
+      const { p, deg } = along(u);
+      const scale = 1.3 - 0.55 * u;
+      return [
+        <JasmineLeaf x={p[0]} y={p[1]} deg={deg - 58} scale={scale} u={u} />,
+        <JasmineLeaf x={p[0]} y={p[1]} deg={deg + 58} scale={scale} u={u + 0.01} />,
+      ];
+    })}
+
+    <Cluster x={212} y={116} u={0.42} />
+    <Cluster x={42} y={68} u={0.7} flip />
+    <Cluster x={196} y={24} u={0.93} />
   </svg>
 );

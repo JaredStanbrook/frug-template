@@ -83,11 +83,9 @@ export const TodayPage = (p: TodayProps) => {
   return (
     <div class="mx-auto w-full max-w-5xl space-y-10 px-4 pb-20 pt-6 sm:px-6 sm:pt-10">
       {/* The one bold moment in the app: the greeting set large in the display
-          face, underlined by a long jasmine garland that grows in from the
-          left. On a phone the garland keeps its size and shows its first
-          stretch rather than shrinking to a thread. */}
-      <header>
-        <div class="min-w-0 max-w-2xl space-y-3">
+          face, beside a star jasmine vine that grows in on arrival. */}
+      <header class="grid grid-cols-[1fr_7rem] items-center gap-2 sm:grid-cols-[1fr_15rem] sm:gap-8">
+        <div class="min-w-0 space-y-3">
           <p class="text-lg text-muted-foreground">
             {formatWeekday(p.today, p.locale)} {formatDay(p.today, p.locale).replace(/^\S+\s/, "")}
             {p.semester && semesterWeek ? `, week ${semesterWeek} of ${p.semester.name}` : ""}
@@ -109,7 +107,7 @@ export const TodayPage = (p: TodayProps) => {
               : ""}
           </p>
         </div>
-        <StarJasmine class="-mx-2 mt-4 block h-24 w-[calc(100%+1rem)] sm:aspect-[1000/150] sm:h-auto" />
+        <StarJasmine class="h-36 w-28 justify-self-end sm:h-72 sm:w-60" />
       </header>
 
       {!p.semester || !p.hasSubjects ? (
