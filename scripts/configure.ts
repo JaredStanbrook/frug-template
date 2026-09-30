@@ -181,16 +181,18 @@ const run = () => {
   );
   if (dropKv) {
     const stripped = removeTopLevelBlock(s, "kv_namespaces");
+    // Already gone is fine: rerunning configure, or a block removed by hand,
+    // should not abort the whole run and leave every other value unset.
     if (stripped === null) {
-      console.error("Could not find the kv_namespaces block to remove — remove it by hand.");
-      process.exit(1);
+      warnings.push("No kv_namespaces block found — KV is already removed, nothing to do.");
+    } else {
+      s = stripped;
+      warnings.push(
+        "Removed the KV binding. Also delete `KV` from the Bindings type in\n" +
+          "  worker/types.ts, and make sure AUTH_METHODS does not include `passkey` —\n" +
+          "  passkey sign-in stores its challenge in KV and will fail without it.",
+      );
     }
-    s = stripped;
-    warnings.push(
-      "Removed the KV binding. Also delete `KV` from the Bindings type in\n" +
-        "  worker/types.ts, and make sure AUTH_METHODS does not include `passkey` —\n" +
-        "  passkey sign-in stores its challenge in KV and will fail without it.",
-    );
   } else {
     s = s.replaceAll('"id": "00000000000000000000000000000000"', `"id": ${JSON.stringify(kvId)}`);
   }
@@ -249,14 +251,17 @@ const run = () => {
   const r2Bucket = str(args["r2-bucket"]);
   if (args["no-r2"]) {
     const strippedR2 = removeTopLevelBlock(s, "r2_buckets");
+    // Already gone is fine: rerunning configure, or a block removed by hand,
+    // should not abort the whole run and leave every other value unset.
     if (strippedR2 === null) {
-      console.error("Could not find the r2_buckets block to remove — remove it by hand.");
-      process.exit(1);
+      warnings.push("No r2_buckets block found — R2 is already removed, nothing to do.");
+    } else {
+      s = strippedR2;
+      warnings.push(
+        "Removed the R2 binding. Also delete `R2` from the Bindings type in\n" +
+          "  worker/types.ts.",
+      );
     }
-    s = strippedR2;
-    warnings.push(
-      "Removed the R2 binding. Also delete `R2` from the Bindings type in\n" + "  worker/types.ts.",
-    );
   } else if (r2Bucket) {
     s = s.replaceAll(
       '"bucket_name": "change-me-files"',

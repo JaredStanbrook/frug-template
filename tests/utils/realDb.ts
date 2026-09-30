@@ -59,7 +59,22 @@ export const createRealDb = () => {
     }
   }
 
-  const db = drizzle(async (sql, params, method) => run(sqlite, sql, params, method));
+  const db = drizzle(
+    async (sql, params, method) => run(sqlite, sql, params, method),
+    // `db.batch([...])`, as D1 runs it: in order, all or nothing. Without this
+    // callback, any code under test that batches throws before touching the db.
+    async (queries: { sql: string; params: any[]; method: string }[]) => {
+      sqlite.exec("BEGIN");
+      try {
+        const results = queries.map((q) => run(sqlite, q.sql, q.params, q.method));
+        sqlite.exec("COMMIT");
+        return results;
+      } catch (error) {
+        sqlite.exec("ROLLBACK");
+        throw error;
+      }
+    },
+  );
 
   return { db: db as any, sqlite, close: () => sqlite.close() };
 };

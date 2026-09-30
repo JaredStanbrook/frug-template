@@ -206,6 +206,20 @@
   --shadow-2xl: var(--shadow-2xl);
 }
 
+/* Tailwind v4 made a bare `border` default to currentColor, so every card,
+   divider and the header rule rendered in the text colour — near-black in
+   light mode — unless it also named `border-border`. The theme owns the
+   border colour, so set it once here rather than on every element. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border, currentColor);
+  }
+}
+
 /* Container for scrolling text */
 .scroll-text-container {
   width: 100%;
