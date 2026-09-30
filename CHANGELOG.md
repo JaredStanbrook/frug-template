@@ -92,6 +92,16 @@ deploy`. This is the Deploy command pasted into the dashboard; the default
   `ENVIRONMENT` is not `production`, so a staging copy cannot be indexed
   alongside the real site.
 - `/login`, `/register`, `/admin`, `/api` and `/dev` are `noindex`.
+- The frugal skill gains `references/seo.md`, and a "Search and sharing"
+  section in `SKILL.md`. It covers the per-page checklist; titles and
+  descriptions; headings; canonicals, parameters and the sitemap; and the traps
+  that pass every test (HTTP served alongside HTTPS, trailing-slash 404s, an
+  empty 404 body, a Vite `define` that never reaches production, `?v=` on
+  `client.js` running the bundle twice, and a `wrangler dev` redirect loop).
+  It adds tested recipes for redirects, a 404 page, a share image, honest
+  structured data, long-lived caching and lazy-loaded staff components; how to
+  audit a site; and the owner actions code can't do. The registration
+  checklist now includes a public page's metadata and sitemap entry.
 
 ### Performance
 
