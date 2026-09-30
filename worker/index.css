@@ -341,35 +341,40 @@ body::before {
   letter-spacing: -0.005em;
 }
 
-/* The one unprompted motion in the app: the star jasmine on Today grows.
-   The vine draws itself in over --dur; every leaf, tendril and flower waits
-   for the growing tip, using its own --at (0 at the root, 1 at the tip) as a
-   fraction of the vine's growth. Flowers open last with a quarter-turn, the
-   way star jasmine's twisted petals unfurl. Skipped entirely under reduced
-   motion, where the finished vine simply shows. */
+/* The one unprompted motion in the app: the star jasmine on Today grows in.
+   Every part carries --t, the second it should appear (see florals.tsx);
+   stems draw over --dur. Flowers open with a quarter-turn, the way star
+   jasmine's twisted petals unfurl, and a few loose petals drift down once.
+   Under reduced motion the finished vine shows and no petals fall. */
+.jasmine .petal {
+  opacity: 0;
+}
 @media (prefers-reduced-motion: no-preference) {
-  .jasmine {
-    --grow: 2.4s;
-  }
   .jasmine .stem {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
-    animation: jasmine-draw var(--dur, 1s) cubic-bezier(0.45, 0.05, 0.4, 1) forwards;
-    animation-delay: calc(var(--at, 0) * var(--grow));
+    animation: jasmine-draw var(--dur, 1s) cubic-bezier(0.35, 0.1, 0.45, 1) forwards;
+    animation-delay: calc(var(--t, 0) * 1s);
   }
   .jasmine .grow {
     opacity: 0;
     transform-box: fill-box;
     transform-origin: left center;
     animation: jasmine-unfurl 0.6s cubic-bezier(0.2, 0.8, 0.3, 1.15) forwards;
-    animation-delay: calc(var(--at, 0) * var(--grow));
+    animation-delay: calc(var(--t, 0) * 1s);
   }
   .jasmine .open {
     opacity: 0;
     transform-box: fill-box;
     transform-origin: center;
     animation: jasmine-open 0.9s cubic-bezier(0.2, 0.8, 0.3, 1.1) forwards;
-    animation-delay: calc(var(--at, 0) * var(--grow) + 0.35s);
+    animation-delay: calc(var(--t, 0) * 1s);
+  }
+  .jasmine .petal {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: jasmine-fall 3.2s cubic-bezier(0.35, 0, 0.6, 1) forwards;
+    animation-delay: calc(var(--t, 0) * 1s);
   }
 }
 @keyframes jasmine-draw {
@@ -395,6 +400,26 @@ body::before {
   to {
     opacity: 1;
     transform: scale(1) rotate(0);
+  }
+}
+@keyframes jasmine-fall {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0);
+  }
+  12% {
+    opacity: 1;
+  }
+  45% {
+    transform: translate(calc(var(--dx) * 0.6), calc(var(--dy) * 0.4))
+      rotate(calc(var(--spin) * 0.45));
+  }
+  75% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) rotate(var(--spin));
   }
 }
 

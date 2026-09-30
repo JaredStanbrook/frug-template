@@ -83,9 +83,13 @@ export const TodayPage = (p: TodayProps) => {
   return (
     <div class="mx-auto w-full max-w-5xl space-y-10 px-4 pb-20 pt-6 sm:px-6 sm:pt-10">
       {/* The one bold moment in the app: the greeting set large in the display
-          face, beside a star jasmine vine that grows in on arrival. */}
-      <header class="grid grid-cols-[1fr_7rem] items-center gap-2 sm:grid-cols-[1fr_15rem] sm:gap-8">
-        <div class="min-w-0 space-y-3">
+          face, with a star jasmine in spring growth climbing around it. On a
+          phone the vine spills across the top as a banner, so it never sits
+          under the text; from lg up it climbs behind the right-hand side and
+          the text sits above it. */}
+      <header class="relative lg:min-h-[27rem]">
+        <StarJasmine class="pointer-events-none -mx-4 -mt-2 mb-1 block h-60 w-[calc(100%+2rem)] sm:-mx-6 sm:h-80 sm:w-[calc(100%+3rem)] lg:absolute lg:-right-6 xl:-right-16 lg:-top-12 lg:m-0 lg:h-[29rem] lg:w-[36rem]" />
+        <div class="relative z-10 min-w-0 max-w-lg space-y-3 lg:pt-8">
           <p class="text-lg text-muted-foreground">
             {formatWeekday(p.today, p.locale)} {formatDay(p.today, p.locale).replace(/^\S+\s/, "")}
             {p.semester && semesterWeek ? `, week ${semesterWeek} of ${p.semester.name}` : ""}
@@ -107,7 +111,6 @@ export const TodayPage = (p: TodayProps) => {
               : ""}
           </p>
         </div>
-        <StarJasmine class="h-36 w-28 justify-self-end sm:h-72 sm:w-60" />
       </header>
 
       {!p.semester || !p.hasSubjects ? (

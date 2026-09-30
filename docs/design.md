@@ -148,3 +148,12 @@ chips, 8px for paper, round for the tick. Shadows only on things that float
   quarter-turn. Leaf positions come from the vine's own Bézier curve, and each
   part's `--at` (0 root → 1 tip) drives its delay, so growth reads as one
   motion. Petals needed a white in both modes, so `blossom` joined the tokens.
+- **Pass 4 — spring.** Bigger and wilder at the client's request: two stems
+  twine up together, a runner trails across the top, a low shoot sprawls, and
+  leaves, tendrils and 11 flower clusters are placed by a seeded generator
+  (same vine every render, so nothing shifts between requests). A few loose
+  petals drift down once after flowering. Timing moved from a fraction of one
+  stem to absolute seconds (`--t`), so stems can start at different moments.
+  On phones and tablets the vine is a banner above the greeting; from `lg` it
+  climbs behind the right-hand side with the text above it. Checked at 390,
+  768, 1024, 1280 and 1440 with no horizontal overflow.
