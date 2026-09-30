@@ -180,41 +180,50 @@ export const FloralRule = ({ class: cls = "" }: { class?: string }) => (
 );
 
 // ==========================================
-// STAR JASMINE IN SPRING
+// STAR JASMINE GARLAND
 // ==========================================
 //
-// The one memorable thing in the app (docs/design.md): a star jasmine in full
-// spring growth, climbing around the greeting on Today. Two stems twine up
-// together, a runner trails across the top, a low shoot sprawls sideways.
-// Leaves unfurl as each growing tip passes them, tendrils curl, clusters of
-// pinwheel flowers open with a quarter-turn, and a few loose petals drift
-// down once and are gone.
+// The one memorable thing in the app (docs/design.md): a single long spray of
+// star jasmine running the width of the page under the greeting, like a
+// garland border in an old book. Neat on purpose — one stem in an even wave,
+// leaf pairs at regular intervals, five flower clusters evenly spaced and
+// alternating above and below the stem.
 //
-// Wild, but not random on each load: the variation comes from a seeded
-// generator, so the server renders the same vine every time and the page
-// never shifts between requests.
-//
-// Every part carries `--t`, the second at which it should appear, computed
-// from where it sits on its stem and when that stem starts growing. All of it
-// is skipped under prefers-reduced-motion (see index.css), which shows the
-// finished vine and no falling petals.
+// It grows from left to right: the stem draws in, each leaf pair unfurls as
+// the tip passes it, and each cluster opens once the stem has reached it, with
+// the quarter-turn of star jasmine's twisted petals. Every part carries `--t`,
+// the second at which it appears. Skipped under prefers-reduced-motion (see
+// index.css), which shows the finished garland.
 
 type Pt = [number, number];
 type Seg = [Pt, Pt, Pt, Pt];
 
-/** mulberry32: a tiny seeded PRNG, so the "random" vine is the same every render. */
-const seeded = (seed: number) => () => {
-  seed |= 0;
-  seed = (seed + 0x6d2b79f5) | 0;
-  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-};
+/** Width and height of the drawing, in viewBox units. */
+const W = 1000;
+const H = 150;
+const MID = 78;
+const SWING = 16;
+/** Seconds for the stem to grow from end to end. */
+const GROW = 3;
 
-/** Point and heading (degrees) at `u` ∈ [0, 1] along a chain of cubic segments. */
-const sampler = (segs: Seg[]) => (u: number) => {
-  const scaled = Math.min(Math.max(u, 0), 0.9999) * segs.length;
-  const [p0, p1, p2, p3] = segs[Math.floor(scaled)];
+/** An even wave: crests and troughs every 125 units, level tangents at each. */
+const WAVE: Seg[] = Array.from({ length: 8 }, (_, i) => {
+  const x0 = 12 + i * 122;
+  const x1 = x0 + 122;
+  const y0 = MID + (i % 2 === 0 ? -SWING : SWING);
+  const y1 = MID + (i % 2 === 0 ? SWING : -SWING);
+  return [
+    [x0, y0],
+    [x0 + 48, y0],
+    [x1 - 48, y1],
+    [x1, y1],
+  ];
+});
+
+/** Point and heading (degrees) at `u` ∈ [0, 1] along the wave. */
+const along = (u: number) => {
+  const scaled = Math.min(Math.max(u, 0), 0.9999) * WAVE.length;
+  const [p0, p1, p2, p3] = WAVE[Math.floor(scaled)];
   const t = scaled - Math.floor(scaled);
   const mt = 1 - t;
   const point = (i: 0 | 1) =>
@@ -224,131 +233,12 @@ const sampler = (segs: Seg[]) => (u: number) => {
   return { p: [point(0), point(1)] as Pt, deg: (Math.atan2(slope(1), slope(0)) * 180) / Math.PI };
 };
 
-const pathOf = (segs: Seg[]) =>
-  `M${segs[0][0].join(" ")}${segs.map(([, a, b, c]) => `C${a.join(" ")} ${b.join(" ")} ${c.join(" ")}`).join("")}`;
+const WAVE_PATH = `M${WAVE[0][0].join(" ")}${WAVE.map(([, a, b, c]) => `C${a.join(" ")} ${b.join(" ")} ${c.join(" ")}`).join("")}`;
 
 const f = (n: number) => n.toFixed(1);
 const when = (t: number) => `--t:${t.toFixed(2)}`;
-
-interface Stem {
-  segs: Seg[];
-  /** Seconds after load that this stem starts growing. */
-  start: number;
-  /** Seconds it takes to reach its tip. */
-  dur: number;
-  width: number;
-  /** Where along the stem flower clusters branch off, and to which side. */
-  clusters: { u: number; side: 1 | -1; reach: number }[];
-  leafScale: number;
-}
-
-const V1: Seg[] = [
-  [
-    [300, 418],
-    [250, 360],
-    [392, 332],
-    [360, 272],
-  ],
-  [
-    [360, 272],
-    [330, 215],
-    [248, 200],
-    [300, 146],
-  ],
-  [
-    [300, 146],
-    [346, 96],
-    [442, 122],
-    [456, 62],
-  ],
-  [
-    [456, 62],
-    [466, 30],
-    [430, 12],
-    [398, 22],
-  ],
-];
-const V2: Seg[] = [
-  [
-    [334, 418],
-    [404, 372],
-    [300, 322],
-    [332, 262],
-  ],
-  [
-    [332, 262],
-    [362, 204],
-    [424, 216],
-    [396, 160],
-  ],
-  [
-    [396, 160],
-    [370, 110],
-    [302, 106],
-    [330, 54],
-  ],
-];
-const onV1 = sampler(V1);
-const RUNNER_FROM = onV1(0.62).p;
-const V3: Seg[] = [
-  [RUNNER_FROM, [270, 82], [206, 116], [160, 72]],
-  [
-    [160, 72],
-    [122, 36],
-    [70, 66],
-    [36, 44],
-  ],
-];
-const SPRAWL_FROM = onV1(0.16).p;
-const V4: Seg[] = [[SPRAWL_FROM, [416, 388], [452, 338], [482, 346]]];
-
-const STEMS: Stem[] = [
-  {
-    segs: V1,
-    start: 0,
-    dur: 2.6,
-    width: 3,
-    leafScale: 1,
-    clusters: [
-      { u: 0.3, side: 1, reach: 46 },
-      { u: 0.5, side: -1, reach: 40 },
-      { u: 0.78, side: 1, reach: 36 },
-      { u: 1, side: 1, reach: 0 },
-    ],
-  },
-  {
-    segs: V2,
-    start: 0.35,
-    dur: 2.4,
-    width: 2.4,
-    leafScale: 0.9,
-    clusters: [
-      { u: 0.42, side: 1, reach: 42 },
-      { u: 0.7, side: -1, reach: 34 },
-      { u: 1, side: 1, reach: 0 },
-    ],
-  },
-  {
-    segs: V3,
-    start: 0.62 * 2.6,
-    dur: 1.9,
-    width: 2,
-    leafScale: 0.8,
-    clusters: [
-      { u: 0.35, side: 1, reach: 28 },
-      { u: 0.62, side: -1, reach: 30 },
-      { u: 1, side: 1, reach: 0 },
-    ],
-  },
-  {
-    segs: V4,
-    start: 0.16 * 2.6,
-    dur: 1.2,
-    width: 1.8,
-    leafScale: 0.75,
-    clusters: [{ u: 1, side: 1, reach: 0 }],
-  },
-];
+/** The stem reaches `u` at this second. */
+const reach = (u: number) => u * GROW;
 
 /** A glossy elliptic leaf with a pale midrib, pointing along +x from its base. */
 const JasmineLeaf = ({ p, deg, scale, t }: { p: Pt; deg: number; scale: number; t: number }) => (
@@ -380,7 +270,7 @@ const JasmineFlower = ({
   turn: number;
   t: number;
 }) => (
-  <g transform={`translate(${f(p[0])} ${f(p[1])}) rotate(${f(turn)}) scale(${scale.toFixed(2)})`}>
+  <g transform={`translate(${f(p[0])} ${f(p[1])}) rotate(${turn}) scale(${scale})`}>
     <g class="open" style={when(t)}>
       {[0, 72, 144, 216, 288].map((a) => (
         <path
@@ -397,7 +287,7 @@ const JasmineFlower = ({
 );
 
 const JasmineBud = ({ p, deg, t }: { p: Pt; deg: number; t: number }) => (
-  <g transform={`translate(${f(p[0])} ${f(p[1])}) rotate(${f(deg)})`}>
+  <g transform={`translate(${f(p[0])} ${f(p[1])}) rotate(${deg})`}>
     <g class="grow" style={when(t)}>
       <path
         d="M0 0C2.4-3 2.6-8.5 0-12-2.6-8.5-2.4-3 0 0Z"
@@ -409,179 +299,75 @@ const JasmineBud = ({ p, deg, t }: { p: Pt; deg: number; t: number }) => (
   </g>
 );
 
-/** A loose petal that drifts down once after the vine has flowered. */
-const FallingPetal = ({
-  p,
-  dx,
-  dy,
-  spin,
-  t,
-}: {
-  p: Pt;
-  dx: number;
-  dy: number;
-  spin: number;
-  t: number;
-}) => (
-  <g transform={`translate(${f(p[0])} ${f(p[1])})`}>
-    <g class="petal" style={`${when(t)};--dx:${f(dx)}px;--dy:${f(dy)}px;--spin:${f(spin)}deg`}>
-      <path
-        d={PETAL}
-        class="fill-blossom stroke-chart-2"
-        stroke-width="0.5"
-        stroke-opacity="0.45"
-      />
-    </g>
-  </g>
-);
+/** Leaf pairs at a steady rhythm, a touch smaller towards either end. */
+const LEAF_STEP = 1 / 36;
+const LEAVES = Array.from({ length: 35 }, (_, i) => (i + 0.6) * LEAF_STEP).flatMap((u) => {
+  const { p, deg } = along(u);
+  const taper = 1 - Math.abs(u - 0.5) * 0.5;
+  const t = reach(u);
+  return [
+    { p, deg: deg - 52, scale: 1.05 * taper, t },
+    { p, deg: deg + 52, scale: 1.05 * taper, t: t + 0.04 },
+  ];
+});
 
-/** Build every part of the vine once, at module load, from the seeded generator. */
-const buildGarden = () => {
-  const rand = seeded(2026);
-  const stems: { d: string; width: number; start: number; dur: number }[] = [];
-  const tendrils: { p: Pt; deg: number; t: number }[] = [];
-  const twigs: { d: string; t: number }[] = [];
-  const leaves: { p: Pt; deg: number; scale: number; t: number }[] = [];
-  const buds: { p: Pt; deg: number; t: number }[] = [];
-  const flowers: { p: Pt; scale: number; turn: number; t: number }[] = [];
-  const petals: { p: Pt; dx: number; dy: number; spin: number; t: number }[] = [];
+/**
+ * Five clusters, evenly spaced and alternating sides. Each is the same tidy
+ * arrangement — a centre flower, two either side, two buds — on a short stalk.
+ */
+const CLUSTERS = [0.1, 0.3, 0.5, 0.7, 0.9].map((u, i) => {
+  const side = i % 2 === 0 ? -1 : 1; // -1 above the stem, 1 below
+  const { p } = along(u);
+  const end: Pt = [p[0] + 6, p[1] + side * 34];
+  const t = reach(u) + 0.25;
+  return {
+    stalk: {
+      d: `M${f(p[0])} ${f(p[1])}Q${f(p[0] - 4)} ${f(p[1] + side * 18)} ${f(end[0])} ${f(end[1])}`,
+      t: reach(u),
+    },
+    flowers: [
+      { p: end, scale: 1.35, turn: 8, t },
+      { p: [end[0] - 18, end[1] + side * 5] as Pt, scale: 1.05, turn: 40, t: t + 0.12 },
+      { p: [end[0] + 18, end[1] + side * 5] as Pt, scale: 1.05, turn: -24, t: t + 0.18 },
+    ],
+    buds: [
+      { p: [end[0] - 9, end[1] + side * 13] as Pt, deg: side === -1 ? -25 : 205, t: t - 0.05 },
+      { p: [end[0] + 10, end[1] + side * 13] as Pt, deg: side === -1 ? 25 : 155, t: t - 0.02 },
+    ],
+  };
+});
 
-  for (const stem of STEMS) {
-    const at = sampler(stem.segs);
-    const timeAt = (u: number) => stem.start + u * stem.dur;
-    stems.push({ d: pathOf(stem.segs), width: stem.width, start: stem.start, dur: stem.dur });
-
-    // Leaves: uneven spacing, mostly opposite pairs, sometimes a single one.
-    let side: 1 | -1 = 1;
-    for (let u = 0.03 + rand() * 0.03; u < 0.96; u += 0.045 + rand() * 0.035) {
-      const { p, deg } = at(u);
-      const scale = (1.3 - 0.55 * u) * (0.75 + rand() * 0.5) * stem.leafScale;
-      const spread = 42 + rand() * 30;
-      const t = timeAt(u);
-      if (rand() < 0.78) {
-        leaves.push({ p, deg: deg - spread, scale, t });
-        leaves.push({
-          p,
-          deg: deg + spread + (rand() - 0.5) * 16,
-          scale: scale * (0.85 + rand() * 0.3),
-          t: t + 0.03,
-        });
-      } else {
-        leaves.push({ p, deg: deg + side * spread, scale, t });
-      }
-      if (rand() < 0.22) tendrils.push({ p, deg: deg + 90 * side, t });
-      side = side === 1 ? -1 : 1;
-    }
-
-    // Clusters: on a short twig off the stem, or right at the tip.
-    for (const c of stem.clusters) {
-      const { p, deg } = at(c.u);
-      const t = timeAt(c.u);
-      const heading = ((deg - 70 * c.side) * Math.PI) / 180;
-      const end: Pt = [p[0] + Math.cos(heading) * c.reach, p[1] + Math.sin(heading) * c.reach];
-      if (c.reach > 0) {
-        const bend: Pt = [
-          (p[0] + end[0]) / 2 + Math.cos(heading + c.side) * c.reach * 0.35,
-          (p[1] + end[1]) / 2 + Math.sin(heading + c.side) * c.reach * 0.35,
-        ];
-        twigs.push({
-          d: `M${f(p[0])} ${f(p[1])}Q${f(bend[0])} ${f(bend[1])} ${f(end[0])} ${f(end[1])}`,
-          t,
-        });
-      }
-
-      const count = 4 + Math.floor(rand() * 4);
-      // Twigs take 0.5s to reach their end: nothing appears before the twig does.
-      const reached = t + (c.reach > 0 ? 0.5 : 0);
-      const bloomAt = reached + 0.2;
-      for (let k = 0; k < count; k++) {
-        const angle = rand() * Math.PI * 2;
-        const dist = k === 0 ? 0 : 9 + rand() * 15;
-        flowers.push({
-          p: [end[0] + Math.cos(angle) * dist, end[1] + Math.sin(angle) * dist],
-          scale: 0.8 + rand() * 0.55,
-          turn: rand() * 72,
-          t: bloomAt + k * 0.07,
-        });
-      }
-      for (let k = 0; k < 2 + Math.floor(rand() * 3); k++) {
-        const angle = rand() * Math.PI * 2;
-        const dist = 14 + rand() * 12;
-        buds.push({
-          p: [end[0] + Math.cos(angle) * dist, end[1] + Math.sin(angle) * dist],
-          deg: (angle * 180) / Math.PI + 90,
-          t: reached + k * 0.05,
-        });
-      }
-      // One cluster in two lets a petal go.
-      if (rand() < 0.5) {
-        petals.push({
-          p: end,
-          dx: (rand() - 0.5) * 80,
-          dy: 90 + rand() * 120,
-          spin: 180 + rand() * 360,
-          t: bloomAt + 1.2 + rand() * 1.4,
-        });
-      }
-    }
-  }
-  return { stems, tendrils, twigs, leaves, buds, flowers, petals };
-};
-
-const GARDEN = buildGarden();
-
-export const StarJasmine = ({ class: cls = "h-[26rem] w-[32rem]" }: { class?: string }) => (
+export const StarJasmine = ({ class: cls = "w-full" }: { class?: string }) => (
   <svg
-    viewBox="0 0 520 420"
-    preserveAspectRatio="xMaxYMid meet"
+    viewBox={`0 0 ${W} ${H}`}
+    preserveAspectRatio="xMinYMid slice"
     class={`jasmine ${cls}`}
     aria-hidden="true"
     focusable="false"
     fill="none"
   >
-    {GARDEN.stems.map((s) => (
+    <path
+      class="stem stroke-chart-2"
+      pathLength="1"
+      style={`--t:0;--dur:${GROW}s`}
+      d={WAVE_PATH}
+      stroke-width="2.4"
+      stroke-linecap="round"
+    />
+    {CLUSTERS.map((c) => (
       <path
         class="stem stroke-chart-2"
         pathLength="1"
-        style={`${when(s.start)};--dur:${s.dur}s`}
-        d={s.d}
-        stroke-width={s.width}
+        style={`${when(c.stalk.t)};--dur:0.35s`}
+        d={c.stalk.d}
+        stroke-width="1.6"
         stroke-linecap="round"
       />
     ))}
-    {GARDEN.twigs.map((tw) => (
-      <path
-        class="stem stroke-chart-2"
-        pathLength="1"
-        style={`${when(tw.t)};--dur:0.5s`}
-        d={tw.d}
-        stroke-width="1.5"
-        stroke-linecap="round"
-      />
-    ))}
-    {GARDEN.tendrils.map(({ p, deg, t }) => (
-      <g transform={`translate(${f(p[0])} ${f(p[1])}) rotate(${f(deg)})`}>
-        <path
-          class="stem stroke-chart-2"
-          pathLength="1"
-          style={`${when(t)};--dur:0.9s`}
-          d="M0 0C7-1 13 3 12 9 11 14 4 14 4 9 4 6 8 5 9 8"
-          stroke-width="1.1"
-          stroke-linecap="round"
-        />
-      </g>
-    ))}
-    {GARDEN.leaves.map((l) => (
+    {LEAVES.map((l) => (
       <JasmineLeaf {...l} />
     ))}
-    {GARDEN.buds.map((b) => (
-      <JasmineBud {...b} />
-    ))}
-    {GARDEN.flowers.map((fl) => (
-      <JasmineFlower {...fl} />
-    ))}
-    {GARDEN.petals.map((pt) => (
-      <FallingPetal {...pt} />
-    ))}
+    {CLUSTERS.flatMap((c) => c.buds.map((b) => <JasmineBud {...b} />))}
+    {CLUSTERS.flatMap((c) => c.flowers.map((fl) => <JasmineFlower {...fl} />))}
   </svg>
 );

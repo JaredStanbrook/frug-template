@@ -341,19 +341,17 @@ body::before {
   letter-spacing: -0.005em;
 }
 
-/* The one unprompted motion in the app: the star jasmine on Today grows in.
-   Every part carries --t, the second it should appear (see florals.tsx);
-   stems draw over --dur. Flowers open with a quarter-turn, the way star
-   jasmine's twisted petals unfurl, and a few loose petals drift down once.
-   Under reduced motion the finished vine shows and no petals fall. */
-.jasmine .petal {
-  opacity: 0;
-}
+/* The one unprompted motion in the app: the jasmine garland on Today grows
+   from left to right. Every part carries --t, the second it should appear
+   (see florals.tsx); stems draw over --dur at an even pace, so each leaf
+   appears just as the tip reaches it. Flowers open with a quarter-turn, the
+   way star jasmine's twisted petals unfurl. Under reduced motion the finished
+   garland simply shows. */
 @media (prefers-reduced-motion: no-preference) {
   .jasmine .stem {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
-    animation: jasmine-draw var(--dur, 1s) cubic-bezier(0.35, 0.1, 0.45, 1) forwards;
+    animation: jasmine-draw var(--dur, 1s) linear forwards;
     animation-delay: calc(var(--t, 0) * 1s);
   }
   .jasmine .grow {
@@ -368,12 +366,6 @@ body::before {
     transform-box: fill-box;
     transform-origin: center;
     animation: jasmine-open 0.9s cubic-bezier(0.2, 0.8, 0.3, 1.1) forwards;
-    animation-delay: calc(var(--t, 0) * 1s);
-  }
-  .jasmine .petal {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: jasmine-fall 3.2s cubic-bezier(0.35, 0, 0.6, 1) forwards;
     animation-delay: calc(var(--t, 0) * 1s);
   }
 }
@@ -402,27 +394,6 @@ body::before {
     transform: scale(1) rotate(0);
   }
 }
-@keyframes jasmine-fall {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0) rotate(0);
-  }
-  12% {
-    opacity: 1;
-  }
-  45% {
-    transform: translate(calc(var(--dx) * 0.6), calc(var(--dy) * 0.4))
-      rotate(calc(var(--spin) * 0.45));
-  }
-  75% {
-    opacity: 0.8;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(var(--dx), var(--dy)) rotate(var(--spin));
-  }
-}
-
 /* Container for scrolling text */
 .scroll-text-container {
   width: 100%;

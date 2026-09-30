@@ -157,3 +157,11 @@ chips, 8px for paper, round for the tick. Shadows only on things that float
   On phones and tablets the vine is a banner above the greeting; from `lg` it
   climbs behind the right-hand side with the text above it. Checked at 390,
   768, 1024, 1280 and 1440 with no horizontal overflow.
+- **Pass 5 — neat garland.** The client found the spring tangle too wild and
+  asked for "long and neat". It is now one long garland under the greeting:
+  a single stem in an even wave across the full width, leaf pairs at a steady
+  rhythm tapering slightly to the ends, and five identical clusters evenly
+  spaced and alternating above and below. No randomness, tendrils or falling
+  petals. It grows left to right at an even pace (linear draw) so each leaf
+  appears as the tip reaches it. On phones it keeps its size and shows the
+  first stretch (`slice`) rather than shrinking to a thread.
