@@ -48,6 +48,10 @@
   --warning: oklch(0.745 0.132 80); /* marigold             #D8A23C */
   --warning-foreground: oklch(0.28 0.05 70);
 
+  /* Petal white: the jasmine on Today. Its own role because no other token is
+     white-ish in both modes — card is near-white in light and navy in dark. */
+  --blossom: oklch(0.995 0.006 100);
+
   --border: oklch(0.86 0.02 128); /* ruled-line green */
   --input: oklch(0.8 0.025 128);
   --ring: oklch(0.538 0.113 4);
@@ -123,6 +127,9 @@
   --warning: oklch(0.82 0.117 85); /* marigold            #E7BE66 */
   --warning-foreground: oklch(0.241 0.033 256);
 
+  /* Cream, so the flowers glow against the night page. */
+  --blossom: oklch(0.96 0.025 95);
+
   --border: oklch(0.925 0.017 122 / 13%);
   --input: oklch(0.925 0.017 122 / 20%);
   --ring: oklch(0.768 0.096 4);
@@ -169,6 +176,7 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-blossom: var(--blossom);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -333,32 +341,56 @@ body::before {
   letter-spacing: -0.005em;
 }
 
-/* The one unprompted motion in the app: the bouquet on Today draws itself in.
-   Stems are stroked paths; flowers and leaves bloom after. Skipped entirely
-   under reduced motion. */
+/* The one unprompted motion in the app: the star jasmine on Today grows.
+   The vine draws itself in over --dur; every leaf, tendril and flower waits
+   for the growing tip, using its own --at (0 at the root, 1 at the tip) as a
+   fraction of the vine's growth. Flowers open last with a quarter-turn, the
+   way star jasmine's twisted petals unfurl. Skipped entirely under reduced
+   motion, where the finished vine simply shows. */
 @media (prefers-reduced-motion: no-preference) {
-  .bouquet .stem {
+  .jasmine {
+    --grow: 2.4s;
+  }
+  .jasmine .stem {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
-    animation: bouquet-draw 1.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: jasmine-draw var(--dur, 1s) cubic-bezier(0.45, 0.05, 0.4, 1) forwards;
+    animation-delay: calc(var(--at, 0) * var(--grow));
   }
-  .bouquet .bloom {
+  .jasmine .grow {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: left center;
+    animation: jasmine-unfurl 0.6s cubic-bezier(0.2, 0.8, 0.3, 1.15) forwards;
+    animation-delay: calc(var(--at, 0) * var(--grow));
+  }
+  .jasmine .open {
     opacity: 0;
     transform-box: fill-box;
     transform-origin: center;
-    animation: bouquet-bloom 0.7s cubic-bezier(0.2, 0.8, 0.2, 1.2) forwards;
-    animation-delay: calc(0.9s + var(--i, 0) * 0.08s);
+    animation: jasmine-open 0.9s cubic-bezier(0.2, 0.8, 0.3, 1.1) forwards;
+    animation-delay: calc(var(--at, 0) * var(--grow) + 0.35s);
   }
 }
-@keyframes bouquet-draw {
+@keyframes jasmine-draw {
   to {
     stroke-dashoffset: 0;
   }
 }
-@keyframes bouquet-bloom {
+@keyframes jasmine-unfurl {
   from {
     opacity: 0;
-    transform: scale(0.4) rotate(-20deg);
+    transform: scale(0.15) rotate(-25deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+@keyframes jasmine-open {
+  from {
+    opacity: 0;
+    transform: scale(0.2) rotate(-100deg);
   }
   to {
     opacity: 1;

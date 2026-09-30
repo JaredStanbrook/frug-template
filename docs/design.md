@@ -83,7 +83,7 @@ divider under them — whitespace does that job.
 
  TODAY (the one bold moment)
  Wednesday 30 September, week 9 of Semester 2       ❀  ✿
- Good evening, Maya.                                  \ | /   bouquet,
+ Good evening, Maya.                                  \ | /   star jasmine,
  One session left today, and one thing is overdue.     \|/    drawn in
                                                        ─┴─    once
  Today's study ──────────────────────  This week
@@ -102,23 +102,23 @@ chips, 8px for paper, round for the tick. Shadows only on things that float
 ### Principles
 
 1. **The flowers are the voice, everything else is a quiet exercise book.**
-   One illustrated bouquet on Today is the memorable thing. Elsewhere a flower
+   One growing star jasmine vine on Today is the memorable thing. Elsewhere a flower
    appears only where it means something: a subject's flower is its colour, a
    wreath marks an empty page, tape holds a note down.
 2. **Paper and ink, not cards and shadows.** Ruled lines where writing
    happens (notes, flashcards); hairlines between list rows.
 3. **Say it as a sentence.** Sentence case, no eyebrows, no all caps, no
    middle-dot strings, no arrows on links.
-4. **Motion answers the person.** The bouquet drawing itself in on Today is
+4. **Motion answers the person.** The jasmine growing in on Today is
    the single unprompted moment, and it is skipped under reduced motion.
 
 ### Review against the brief
 
 - _Soft vintage_ — exercise-book paper, fountain-pen ink, Didone titling,
   scalloped masthead: vintage through materials. ✔
-- _A bit flowery_ — "a bit" argues for restraint: one bouquet, pressed
+- _A bit flowery_ — "a bit" argues for restraint: one jasmine vine, pressed
   subject flowers, a faint pattern in the paper. ✔
-- _Fun, cosy, simple_ — the greeting and bouquet carry the warmth; the rest is
+- _Fun, cosy, simple_ — the greeting and jasmine carry the warmth; the rest is
   calm. ✔
 - _Not a default_ — worked through "a cosy vintage study app" from scratch
   and landed on cream + serif + rose again, which is why the paper went green
@@ -142,3 +142,9 @@ chips, 8px for paper, round for the tick. Shadows only on things that float
 - **Next time:** the flashcard study screen could carry more of the
   exercise-book feel (a perforation between question and answer), and the
   planner week could read more like a diary page.
+- **Pass 3 — star jasmine.** At the client's request the bouquet became a
+  climbing star jasmine vine: the stem draws in, opposite leaf pairs unfurl as
+  the tip passes them, tendrils curl, and the pinwheel flowers open last with a
+  quarter-turn. Leaf positions come from the vine's own Bézier curve, and each
+  part's `--at` (0 root → 1 tip) drives its delay, so growth reads as one
+  motion. Petals needed a white in both modes, so `blossom` joined the tokens.
