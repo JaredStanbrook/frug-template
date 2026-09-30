@@ -249,5 +249,7 @@ Path aliases: `@server/*` → `worker/*`, `@views/*` → `worker/views/*`,
 - [ ] Admin account created via the `BOOTSTRAP_ADMIN_EMAIL` flow, and the
       variable cleared afterwards
 - [ ] `/dev` router deleted or confirmed admin-only
-- [ ] `grep -in "change.me\|0000000" wrangler.jsonc` returns only comment lines
+- [ ] `grep -in "change.me\|0000000\|frugal-template-db\|0d98fddd\|70192fe3" wrangler.jsonc`
+      returns only comment lines (the last three are the template demo's own
+      D1 and KV, which a new site must not keep)
 - [ ] `npm run lint && npm run typecheck && npm run test` all green

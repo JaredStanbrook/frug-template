@@ -67,11 +67,14 @@
 
   // CHANGE_ME — Dashboard: Storage & Databases -> D1 -> Create.
   //             The Database ID is on the database's overview page.
+  // The D1 and KV ids below belong to the template's own demo deployment.
+  // A site made from the template must replace them (`npm run configure`
+  // does), or it shares the demo's database and sessions.
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "change-me-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_name": "frugal-template-db",
+      "database_id": "0d98fddd-9199-4c3f-81c1-d5180446c0b2",
       "migrations_dir": "drizzle",
     },
   ],

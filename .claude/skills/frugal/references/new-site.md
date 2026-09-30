@@ -20,7 +20,7 @@ Follow it in order; each step depends on the one before.
 Check before anything else:
 
 ```bash
-grep -in "change.me\|0000000\|frug-app" wrangler.jsonc | grep -v "^\s*[0-9]*:\s*//"
+grep -in "change.me\|0000000\|frug-app\|frugal-template-db\|0d98fddd\|70192fe3" wrangler.jsonc | grep -v "^\s*[0-9]*:\s*//"
 ```
 
 Any hit outside a comment means the repo has never been configured, and Step 1
@@ -207,7 +207,10 @@ Tell the user, concretely:
 - **Do not configure the template repository itself.** Configuration belongs
   in the repo made *from* the template. A configured template hands the next
   site real database ids, and its first deploy migrates someone else's data.
-  If you find real ids in the template repo, say so rather than building on it.
+  The exception is the demo's own D1 and KV ids, which the template carries on
+  purpose so it can run as a demo; they must be replaced in every new site
+  (`npm run configure` does it). Any other real id in the template repo is a
+  mistake — say so rather than building on it.
 - **Do not invent Cloudflare ids.** They come from the dashboard. A wrong id
   is accepted at build time and fails at deploy.
 - **Do not leave a binding declared but unprovisioned.** It fails the deploy

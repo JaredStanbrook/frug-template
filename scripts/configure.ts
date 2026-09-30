@@ -24,11 +24,25 @@
  * Rewrites are plain string substitutions against the known placeholders, so
  * the file keeps its comments and formatting. Re-running is safe: values that
  * are already set simply do not match any placeholder.
+ *
+ * The template repo itself runs as a live demo, so its D1 and KV entries hold
+ * the demo's real ids rather than zeros. Those count as placeholders too:
+ * missing them would leave a new site silently sharing the demo's database.
  */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 const CONFIG = "wrangler.jsonc";
+
+/** The template's demo deployment. Replaced like any placeholder; see above. */
+const DEMO = {
+  d1Name: "frugal-template-db",
+  d1Id: "0d98fddd-9199-4c3f-81c1-d5180446c0b2",
+  kvId: "70192fe342234452b5bf9e741f89d368",
+};
+
+/** Placeholder text and demo values: anything a configured site must not keep. */
+const UNSET = new RegExp(["change-me", "0000000", ...Object.values(DEMO)].join("|"), "i");
 
 type Args = Record<string, string | boolean>;
 
@@ -174,11 +188,15 @@ const run = () => {
   const before = s;
 
   s = s.replaceAll('"name": "frug-app"', `"name": ${JSON.stringify(name)}`);
-  s = s.replaceAll('"database_name": "change-me-db"', `"database_name": ${JSON.stringify(d1Name)}`);
-  s = s.replaceAll(
-    '"database_id": "00000000-0000-0000-0000-000000000000"',
-    `"database_id": ${JSON.stringify(d1Id)}`,
-  );
+  for (const placeholder of ["change-me-db", DEMO.d1Name]) {
+    s = s.replaceAll(
+      `"database_name": "${placeholder}"`,
+      `"database_name": ${JSON.stringify(d1Name)}`,
+    );
+  }
+  for (const placeholder of ["00000000-0000-0000-0000-000000000000", DEMO.d1Id]) {
+    s = s.replaceAll(`"database_id": "${placeholder}"`, `"database_id": ${JSON.stringify(d1Id)}`);
+  }
   if (dropKv) {
     const stripped = removeTopLevelBlock(s, "kv_namespaces");
     // Already gone is fine: rerunning configure, or a block removed by hand,
@@ -194,7 +212,9 @@ const run = () => {
       );
     }
   } else {
-    s = s.replaceAll('"id": "00000000000000000000000000000000"', `"id": ${JSON.stringify(kvId)}`);
+    for (const placeholder of ["00000000000000000000000000000000", DEMO.kvId]) {
+      s = s.replaceAll(`"id": "${placeholder}"`, `"id": ${JSON.stringify(kvId)}`);
+    }
   }
 
   s = s.replaceAll('"APP_NAME": "Frug"', `"APP_NAME": ${JSON.stringify(appName)}`);
@@ -279,7 +299,7 @@ const run = () => {
   const remaining = s
     .split("\n")
     .map((line, i) => [i + 1, line] as const)
-    .filter(([, line]) => /change-me|0000000/i.test(line) && !line.trim().startsWith("//"));
+    .filter(([, line]) => UNSET.test(line) && !line.trim().startsWith("//"));
 
   console.log(`Updated ${CONFIG}.`);
   if (remaining.length) {
