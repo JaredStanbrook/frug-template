@@ -324,6 +324,9 @@ More in `references/backend.md` and the repo's `endpoints.md`.
   (`today`, `addDays`, `daysUntil`, `isOverdue`, `relativeDueLabel`). They work
   in UTC on purpose: a due date is a day, not an instant, and doing the
   arithmetic on a local-time `Date` moves it by one either side of midnight.
+  The exception is *which day it is now*: use `today(c.var.app.timezone)`
+  (`APP_TIMEZONE`) for anything a person reads as "today", or a Perth user
+  sees yesterday's list until 8am.
 - **Never return a raw `users` row.** `Auth.toSafeUser()` strips
   `passwordHash`, `pin` and `totpSecret`. Every exit from the auth service
   goes through it.

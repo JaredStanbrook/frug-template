@@ -22,6 +22,12 @@ export interface AuthConfig {
     requireEmailVerification: boolean;
     requirePhoneVerification: boolean;
     allowedEmails: string[];
+    /**
+     * SINGLE_ACCOUNT: the site belongs to one person. Sign-up accepts only
+     * BOOTSTRAP_ADMIN_EMAIL, and only while no account exists at all — after
+     * that there is no way to register. See `Auth.isRegistrationOpen`.
+     */
+    singleAccount?: boolean;
     jwtSecret: string;
     jwtExpiry: number;
     /** PBKDF2 rounds for new password hashes — see DEFAULT_PBKDF2_ITERATIONS. */
@@ -128,6 +134,7 @@ export function parseAuthConfig(env: any): AuthConfig {
       requireEmailVerification,
       requirePhoneVerification,
       allowedEmails,
+      singleAccount: env.SINGLE_ACCOUNT === "true",
       // No fallback on purpose. A default here signs real sessions with a
       // value published in this template's source; `requireSecrets` stops the
       // app before an empty one can be used.

@@ -14,6 +14,11 @@ export interface AppConfig {
   locale: string;
   /** ISO 4217 code used by the currency formatters, e.g. "AUD". */
   currency: string;
+  /**
+   * IANA zone, e.g. "Australia/Perth". Decides what "today" means on screens
+   * that show it; dates themselves are stored as plain calendar days.
+   */
+  timezone: string;
   /** Absolute origin the site is served from, used for links in emails/PDFs. */
   origin: string;
 }
@@ -24,6 +29,19 @@ export function parseAppConfig(env: any): AppConfig {
     tagline: env.APP_TAGLINE || "",
     locale: env.APP_LOCALE || "en-AU",
     currency: env.APP_CURRENCY || "AUD",
+    timezone: validTimeZone(env.APP_TIMEZONE) ?? "UTC",
     origin: env.ORIGIN || "http://localhost:3000",
   };
+}
+
+/** A typo in APP_TIMEZONE would throw on every page; fall back rather than 500. */
+function validTimeZone(zone: string | undefined): string | undefined {
+  if (!zone) return undefined;
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: zone });
+    return zone;
+  } catch {
+    console.warn(`APP_TIMEZONE "${zone}" is not a valid IANA time zone; using UTC.`);
+    return undefined;
+  }
 }

@@ -21,13 +21,21 @@ webAuth.get("/", (c) => {
   });
 });
 
-webAuth.get("/register", (c) => {
+webAuth.get("/register", async (c) => {
   const { auth, authConfig } = c.var;
   if (auth.user) return c.redirect("/");
 
+  // With SINGLE_ACCOUNT on, the form only exists until the owner has signed
+  // up. The API refuses regardless; this just avoids offering a form that
+  // cannot succeed.
+  if (!(await auth.isRegistrationOpen())) return c.redirect("/login");
+
   const props = {
     methods: Array.from(authConfig.methods),
-    roles: authConfig.roles?.available || ["user"],
+    // A restricted role would only be refused on submit, so do not offer it.
+    roles: (authConfig.roles?.available || ["user"]).filter(
+      (role) => !(authConfig.roles?.restricted || []).includes(role),
+    ),
     defaultRole: authConfig.roles?.default || "user",
     // The form should state the rule it will be judged by. Without this the
     // page advertised a minimum of 8 while the server enforced whatever
@@ -40,12 +48,13 @@ webAuth.get("/register", (c) => {
   });
 });
 
-webAuth.get("/login", (c) => {
+webAuth.get("/login", async (c) => {
   const { auth, authConfig } = c.var;
   if (auth.user) return c.redirect("/");
 
   const props = {
     methods: Array.from(authConfig.methods),
+    registrationOpen: await auth.isRegistrationOpen(),
   };
   return c.render(<Login {...props} />, {
     title: "Sign In",

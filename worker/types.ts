@@ -17,6 +17,8 @@ export type Vars = {
   APP_TAGLINE: string;
   APP_LOCALE: string;
   APP_CURRENCY: string;
+  /** IANA zone that decides what "today" means, e.g. "Australia/Perth". */
+  APP_TIMEZONE: string;
   ORIGIN: string;
   /** A Wrangler secret, never a var. Signs the session JWT. */
   JWT_SECRET: string;
@@ -34,6 +36,8 @@ export type Vars = {
    * `Auth.resolveBootstrapRole`.
    */
   BOOTSTRAP_ADMIN_EMAIL: string;
+  /** "true" closes sign-up for good once the owner's account exists. */
+  SINGLE_ACCOUNT: string;
 };
 
 /**

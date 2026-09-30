@@ -180,6 +180,8 @@ Tell the user, concretely:
   and Deploy `npm run deploy`, and registering with the bootstrap admin email.
 - That `ALLOWED_EMAILS` is worth setting if the site should not be open to
   public sign-up.
+- That `SINGLE_ACCOUNT` = `"true"` makes a one-owner site: only
+  `BOOTSTRAP_ADMIN_EMAIL` can register, once, and sign-up then closes for good.
 
 ## What not to do
 
