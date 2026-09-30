@@ -1,8 +1,8 @@
-import { html } from "hono/html";
+import { html, raw } from "hono/html";
 import type { FC, Child } from "hono/jsx";
 import { type PropsUser } from "@server/schema/auth.schema";
 import type { AppConfig } from "@server/config/app.config";
-import type { ResolvedMeta } from "@server/lib/seo";
+import { jsonLdScript, type ResolvedMeta } from "@server/lib/seo";
 import { NavBar } from "./components/NavBar";
 
 interface LayoutProps {
@@ -12,6 +12,18 @@ interface LayoutProps {
   user?: PropsUser | null;
   currentPath?: string;
   headExtra?: Child;
+  /**
+   * Appended to the stylesheet URL so each deploy gets a new one. Its file
+   * name is fixed (`static/main.css`), so without it the stylesheet could not
+   * be cached for long; with it, `public/_headers` caches it for a year and a
+   * deploy still reaches every browser at once. See lib/asset-version.ts.
+   *
+   * Not appended to `client.js`: the lazily loaded chunks import shared code
+   * back from `/static/client.js` by that exact URL, and a browser treats
+   * `client.js?v=…` as a different module — so it would run the bundle twice,
+   * and the second run fails to re-register its custom elements.
+   */
+  assetVersion: string;
 }
 
 export const Layout: FC<LayoutProps> = (props) => {
@@ -50,14 +62,27 @@ export const Layout: FC<LayoutProps> = (props) => {
         ${
           props.meta.image
             ? html`<meta property="og:image" content="${props.meta.image}" />
+                <meta property="og:image:alt" content="${props.meta.siteName}" />
                 <meta name="twitter:card" content="summary_large_image" />`
             : html`<meta name="twitter:card" content="summary" />`
         }
+        <meta name="twitter:title" content="${props.meta.title}" />
+        ${
+          props.meta.description
+            ? html`<meta name="twitter:description" content="${props.meta.description}" />`
+            : ""
+        }
+        ${props.meta.jsonLd.map(
+          (data) =>
+            html`<script type="application/ld+json">
+              ${raw(jsonLdScript(data))}
+            </script>`,
+        )}
 
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         ${
           isProd
-            ? html`<link rel="stylesheet" href="/static/main.css" />`
+            ? html`<link rel="stylesheet" href="/static/main.css?v=${props.assetVersion}" />`
             : html`<link rel="stylesheet" href="/worker/index.css" />`
         }
         <script

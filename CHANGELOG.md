@@ -92,9 +92,39 @@ deploy`. This is the Deploy command pasted into the dashboard; the default
   `ENVIRONMENT` is not `production`, so a staging copy cannot be indexed
   alongside the real site.
 - `/login`, `/register`, `/admin`, `/api` and `/dev` are `noindex`.
+- One URL per page: `canonical-url.middleware.ts` 301s HTTP → HTTPS on the
+  production host (with HSTS) and `/path/` → `/path`. Before, Cloudflare served
+  every page over plain HTTP too, and a trailing slash was a 404. The scheme is
+  read from `CF-Visitor`, because `wrangler dev` presents the production host
+  over HTTP and trusting the URL looped a local preview.
+- A real 404 page (`views/pages/NotFound.tsx`, status 404, `noindex`) for
+  missed page requests, instead of the asset layer's empty body.
+- JSON-LD: `jsonLd` on `c.render`, serialised safely by `jsonLdScript`, with
+  `websiteSchema` and `faqSchema` in `lib/structured-data.ts`. The home page
+  emits `WebSite`.
+- A default share image: `APP_OG_IMAGE`, plus `scripts/og-image.mjs`, which
+  renders one from the site's own name, tagline, colours and logo. Empty by
+  default, so no site ships the template's. `og:image:alt`, `twitter:title` and
+  `twitter:description` are added.
+- The home page's title is `"{APP_TAGLINE} · {APP_NAME}"` rather than the bare
+  site name.
+- The frugal skill gains `references/seo.md`: what's built in and how to extend
+  it, the per-page checklist, titles and descriptions, headings, canonicals and
+  the sitemap, the traps above, how to audit a site, and the owner actions code
+  can't do. `SKILL.md` has a "Search and sharing" section, and `new-site.md`
+  includes the SEO steps.
 
 ### Performance
 
+- Staff-only components (sign-in, registration, profile, and with them the
+  WebAuthn client and QR-code library) load only on pages that render them,
+  through `ISLANDS` in `components/main.ts`. Public-page JavaScript: 178 KB →
+  106 KB minified, 52 KB → 34 KB gzipped.
+- `public/_headers` caches `main.css` and the hashed chunks for a year. The
+  stylesheet URL carries the deployment ID from the new `CF_VERSION_METADATA`
+  binding: a Vite `define` can't do this, because `wrangler deploy` bundles
+  `worker/` itself. `client.js` keeps one URL, since the chunks import it by
+  that URL.
 - The auth path ran **four sequential D1 queries on every authenticated
   request** — the user row, then `user_roles`, then `user_roles` again inside
   the permission lookup, then `user_permissions`. `getRolesAndPermissions()`

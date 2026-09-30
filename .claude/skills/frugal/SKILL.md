@@ -1,6 +1,6 @@
 ---
 name: frugal
-description: Build, configure and style apps on the Frugal Cloudflare Workers template (Hono + server-rendered JSX + HTMX + D1/Drizzle, Tailwind theme tokens). Use this skill for BOTH jobs it covers. First, turning a fresh copy of the template into a real site — trigger on "I want to build X with this", "set up this repo", "new site from this template", a pasted app brief, or any mention of wiring D1, KV or R2. Second, all ongoing work — adding a page, route, form, table, migration, nav link, auth or permission rule, and every visual or CSS change however small ("restyle this", "change the colours", "make it look better", "add a dashboard", dark mode). It covers the exact template-to-app procedure, how to wire each binding, the frontend/backend split, the registration steps a feature needs in order to be reachable, and the theme-token rules that keep light and dark working — all easy to miss and tedious to debug afterwards.
+description: Build, configure and style apps on the Frugal Cloudflare Workers template (Hono + server-rendered JSX + HTMX + D1/Drizzle, Tailwind theme tokens). Use this skill for BOTH jobs it covers. First, turning a fresh copy of the template into a real site — trigger on "I want to build X with this", "set up this repo", "new site from this template", a pasted app brief, or any mention of wiring D1, KV or R2. Second, all ongoing work — adding a page, route, form, table, migration, nav link, auth or permission rule, and every visual or CSS change however small ("restyle this", "change the colours", "make it look better", "add a dashboard", dark mode). Also SEO: titles, meta descriptions, sitemap, redirects, share images, schema, page speed, audits. It covers the exact template-to-app procedure, how to wire each binding, the frontend/backend split, the registration steps a feature needs in order to be reachable, and the theme-token rules that keep light and dark working — all easy to miss and tedious to debug afterwards.
 ---
 
 # Building on the Frugal template
@@ -238,8 +238,12 @@ A feature that renders but is invisible is almost always a missed line here:
       `Resource` union, or `authorize()` will not typecheck
 - [ ] `worker/routes/dev.tsx` — add the table so it shows in the inspector
 - [ ] `tests/ui-pages.test.ts` — add the new paths
-- [ ] Client-side element? Import it in `worker/components/main.ts` or it
-      never registers
+- [ ] Public page? Set `title` and `description` in `c.render`, and add it to
+      `STATIC_ROUTES` in `worker/routes/seo.ts`. Behind a guard? Leave it out of
+      the sitemap. See `references/seo.md`
+- [ ] Client-side element? Register it in `worker/components/main.ts` or it
+      never loads: a top-level import if most pages render it, or an `ISLANDS`
+      entry per tag if only a few do
 
 ### Routes
 
@@ -316,6 +320,42 @@ navigation. Available in `c.var`: `db`, `auth`, `app` (branding/locale),
 `authConfig`.
 
 More in `references/backend.md` and the repo's `endpoints.md`.
+
+## Search and sharing
+
+Server rendering already does the hard part, and the rest is built in.
+`worker/lib/seo.ts` gives every page a canonical from `ORIGIN`, Open Graph and
+Twitter tags, JSON-LD via `jsonLd`, and `noindex` on sign-in, admin and
+query-string URLs. `worker/routes/seo.ts` serves an environment-aware
+`robots.txt` and the sitemap. On top of that:
+
+- `canonical-url.middleware.ts` 301s HTTP → HTTPS and trailing slashes away;
+- `NotFound.tsx` is a real 404 page;
+- `APP_OG_IMAGE` plus `scripts/og-image.mjs` give every page a share image;
+- `public/_headers` with the `CF_VERSION_METADATA` binding caches CSS for a
+  year;
+- `ISLANDS` in `main.ts` keeps auth JavaScript off public pages.
+
+What a route owes: a real `title` and `description`, one `<h1>` with no
+skipped heading levels, and a sitemap entry if it's public. The full guide,
+including how to audit a site, is `references/seo.md`.
+
+Traps that pass every test, each the reason a built-in piece looks the way it
+does:
+
+- **Cloudflare answers `http://` with a 200** unless "Always Use HTTPS" is on,
+  so every page exists twice.
+- **`wrangler dev` rewrites the host to production over plain HTTP.** The
+  redirect reads `CF-Visitor`, not `c.req.url`; trusting the URL loops a local
+  preview.
+- **A Vite `define` never reaches production:** `wrangler deploy` bundles
+  `worker/index.ts` itself. Per-deploy values come from the runtime.
+- **`?v=` on `client.js` runs the bundle twice**, because the lazy chunks
+  import it by its bare URL. Only `main.css` is versioned.
+- **A UI-only parameter (`?topic=`) gets `noindex` plus a canonical** by
+  default. That's a conflicting signal; pass `noindex: false` there.
+- **Structured data must match the visible page.** No rating, review or FAQ
+  that isn't on it.
 
 ## Conventions worth keeping
 
@@ -394,3 +434,7 @@ rather than a rollback. `docs/deploy.md` covers setup, failures and rollback.
   response patterns, testing.
 - `references/frontend.md` — server views vs client islands, HTMX attributes,
   when a Lit component is justified and how to write one.
+- `references/seo.md` — search and sharing: what's built in and how to extend
+  it (redirects, 404 page, share image, structured data, caching, lazy
+  islands), the per-page checklist, titles and descriptions, silent traps, how
+  to audit a site, and the owner actions code can't do.

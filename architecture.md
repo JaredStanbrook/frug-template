@@ -29,6 +29,8 @@ Request
   │
   ├─ logger            request logging
   ├─ cors              same-origin by default, widened deliberately
+  ├─ canonicalUrl      301 http → https and /path/ → /path; HSTS
+  ├─ requireSecrets    refuse to serve without JWT_SECRET
   ├─ configMiddleware  parse env vars → c.var.app, c.var.authConfig
   ├─ dbMiddleware      construct Drizzle client → c.var.db
   ├─ authMiddleware    read auth_token cookie, validate JWT → c.var.auth
@@ -39,6 +41,7 @@ Request
   │    └─ route handler
   │
   └─ notFound → ASSETS.fetch (static client bundle, public/)
+                 still 404 and the browser wanted a page → the 404 page
 ```
 
 Config is parsed per request rather than at module scope because Workers

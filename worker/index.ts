@@ -12,6 +12,8 @@ import { configMiddleware } from "./middleware/config.middleware";
 import { dbMiddleware } from "./middleware/db.middleware";
 import { authMiddleware } from "./middleware/auth.middleware";
 import { describeError, isMissingSchema } from "./lib/errors";
+import { canonicalUrl } from "./middleware/canonical-url.middleware";
+import { renderNotFound } from "./views/pages/NotFound";
 
 const worker = new Hono<AppEnv>();
 
@@ -37,6 +39,10 @@ worker.use("*", (c, next) =>
     credentials: true,
   })(c, next),
 );
+
+// One URL per page: HTTP → HTTPS and no trailing slash, both 301s. Before the
+// secrets check, since a redirect needs neither config nor the database.
+worker.use("*", canonicalUrl);
 
 // Before anything reads config or touches the database: a missing JWT_SECRET
 // makes sessions forgeable rather than merely broken, so nothing is served.
@@ -77,6 +83,23 @@ worker.onError((err, c) => {
 
 // Anything the router did not claim falls through to the client bundle
 // (/static/*, favicon, and any other file in public/).
-worker.notFound((c) => c.env.ASSETS.fetch(c.req.raw));
+//
+// A miss that a browser asked for as a page gets the 404 page rather than the
+// asset layer's empty body; a missing file or an API call keeps its plain 404.
+// Wrapped because under `vite dev` the binding is a stub that cannot take a
+// Request, and every genuinely missing page would otherwise look like a crash.
+worker.notFound(async (c) => {
+  const wantsPage = c.req.method === "GET" && (c.req.header("Accept") ?? "").includes("text/html");
+
+  let response: Response;
+  try {
+    response = await c.env.ASSETS.fetch(c.req.raw);
+  } catch (err) {
+    console.warn(`[assets] could not serve ${c.req.path}: ${describeError(err)}`);
+    response = c.text("Not found", 404);
+  }
+
+  return response.status === 404 && wantsPage ? renderNotFound(c) : response;
+});
 
 export default worker;

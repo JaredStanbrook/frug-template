@@ -1,0 +1,25 @@
+# Cache headers for static files, read by Cloudflare's asset layer (also by
+# `wrangler dev`, so `npm run preview` shows the real values).
+#
+# Without this every file is served with `max-age=0, must-revalidate`, so a
+# returning visitor re-checks the stylesheet on every page view.
+#
+# main.css is safe to cache for a year because Layout.tsx requests it with a
+# per-deploy `?v=` query, and the chunks under /static/chunks/ carry a content
+# hash in their names. client.js is deliberately absent: it keeps one URL (the
+# chunks import it by that URL) and falls back to the default revalidation.
+#
+# Self-hosted fonts added later belong here too, with the same year-long
+# cache, provided a changed font gets a new file name.
+
+/static/main.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/static/chunks/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/og.png
+  Cache-Control: public, max-age=86400
+
+/favicon.svg
+  Cache-Control: public, max-age=86400
