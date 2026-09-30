@@ -110,6 +110,10 @@
     "APP_TAGLINE": "A Cloudflare Workers starter with batteries included.",
     "APP_LOCALE": "en-AU",
     "APP_CURRENCY": "AUD",
+    // IANA zone, e.g. "Australia/Perth". Decides what "today" means when a
+    // page asks (`today(c.var.app.timezone)` in worker/lib/dates.ts). UTC is
+    // right for storage and wrong for "what's due today" in Perth before 8am.
+    "APP_TIMEZONE": "UTC",
 
     // --- CORE AUTH ---
     // Enabled methods: passkey, password, pin, totp, email, sms
@@ -137,6 +141,12 @@
     // Comma-separated allowlist. Empty means open registration.
     // Set this for an invite-only or single-user site.
     "ALLOWED_EMAILS": "",
+
+    // One-owner site: set to "true" and sign-up accepts only
+    // BOOTSTRAP_ADMIN_EMAIL, and only while no account exists; after that
+    // /register is gone for good. Needs BOOTSTRAP_ADMIN_EMAIL set, or nobody
+    // can ever register. Leave "false" for sites with open sign-up.
+    "SINGLE_ACCOUNT": "false",
 
     // First-run admin, so you never need a terminal to get one. Register
     // normally with this exact email and that account becomes an admin — but

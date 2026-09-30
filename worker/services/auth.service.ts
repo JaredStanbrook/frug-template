@@ -137,6 +137,38 @@ export class Auth {
     }
   }
   /**
+   * Whether anyone may register right now.
+   *
+   * Always true unless SINGLE_ACCOUNT is on. Then the site has exactly one
+   * owner: sign-up is open only while no account exists, and only to
+   * BOOTSTRAP_ADMIN_EMAIL — so the one account that can ever be created is the
+   * admin. Without the email check, whoever found the site first after a
+   * deploy would take the only account, and as a plain user with no way to
+   * make anyone an admin.
+   */
+  async isRegistrationOpen(): Promise<boolean> {
+    if (!this.authConfig.security.singleAccount) return true;
+    if (!(this.c.env.BOOTSTRAP_ADMIN_EMAIL || "").trim()) return false;
+    const [anyone] = await this.db.select({ id: users.id }).from(users).limit(1);
+    return !anyone;
+  }
+
+  /** Throws unless `email` may register now. Every sign-up path calls this. */
+  private async assertRegistrationOpen(email: string) {
+    if (!(await this.isRegistrationOpen())) {
+      throw new Error("Sign-up is closed on this site.");
+    }
+    if (!this.authConfig.security.singleAccount) return;
+
+    const owner = (this.c.env.BOOTSTRAP_ADMIN_EMAIL || "").trim().toLowerCase();
+    if (email.trim().toLowerCase() !== owner) {
+      // Same message as closed: the form must not confirm which address owns the site.
+      console.warn(`Blocked single-account registration for: ${email}`);
+      throw new Error("Sign-up is closed on this site.");
+    }
+  }
+
+  /**
    * The one place an email address is turned into the form we store and
    * compare. Lowercased and trimmed.
    *
@@ -551,6 +583,7 @@ export class Auth {
   async register(data: RegisterUser) {
     const email = this.normaliseEmail(data.email);
     this.validateRegistrationEligibility(email);
+    await this.assertRegistrationOpen(email);
 
     if (data.password && this.isMethodEnabled("password")) {
       this.assertPasswordPolicy(data.password);
@@ -1089,6 +1122,7 @@ export class Auth {
     if (!this.isMethodEnabled("passkey")) throw new Error("Passkey registration is not enabled.");
 
     this.validateRegistrationEligibility(email);
+    await this.assertRegistrationOpen(email);
 
     const existingUser = await this.db.select().from(users).where(eq(users.email, email)).get();
 
@@ -1119,6 +1153,7 @@ export class Auth {
     challengeId: string,
   ) {
     this.validateRegistrationEligibility(email);
+    await this.assertRegistrationOpen(email);
 
     let roleToAssign = this.authConfig.roles.default;
 

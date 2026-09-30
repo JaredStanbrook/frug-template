@@ -564,6 +564,65 @@ describe("registration", () => {
   });
 });
 
+/**
+ * SINGLE_ACCOUNT: a site with one owner. The only account that can ever be
+ * created is BOOTSTRAP_ADMIN_EMAIL's, and only while there is no account.
+ */
+describe("single-account sign-up", () => {
+  const env = { BOOTSTRAP_ADMIN_EMAIL: "owner@example.com" };
+  const single = () => {
+    const config = createAuthConfig();
+    config.security.singleAccount = true;
+    return config;
+  };
+  const register = (email: string, opts: { env?: Record<string, unknown> } = {}) =>
+    inContext((auth) => auth.register({ email, password: "a-long-enough-password" } as any), {
+      env: opts.env ?? env,
+      config: single(),
+    });
+  const count = async () => (await db.select({ id: users.id }).from(users)).length;
+
+  it("lets the owner create the one account, as an admin", async () => {
+    const { error } = await register("Owner@Example.com");
+    expect(error).toBeUndefined();
+    const [row] = await db.select().from(users);
+    const roles = await db.select().from(userRoles).where(eq(userRoles.userId, row.id));
+    expect(roles.map((r: any) => r.role)).toContain("admin");
+  });
+
+  it("refuses anyone else, even on an empty site", async () => {
+    const { message } = await register("stranger@example.com");
+    expect(message).toBe("Sign-up is closed on this site.");
+    expect(await count()).toBe(0);
+  });
+
+  it("closes for good once the account exists, the owner's address included", async () => {
+    await register("owner@example.com");
+    const again = await register("owner@example.com");
+    expect(again.message).toBe("Sign-up is closed on this site.");
+    expect(await count()).toBe(1);
+  });
+
+  it("stays closed when no owner address is configured", async () => {
+    const { message } = await register("owner@example.com", { env: {} });
+    expect(message).toBe("Sign-up is closed on this site.");
+    expect(await count()).toBe(0);
+  });
+
+  it("reports whether the form is worth showing, and is off by default", async () => {
+    const open = await inContext((auth) => auth.isRegistrationOpen(), { env, config: single() });
+    expect(open.value).toBe(true);
+
+    await seedUser();
+    const closed = await inContext((auth) => auth.isRegistrationOpen(), { env, config: single() });
+    expect(closed.value).toBe(false);
+
+    // An ordinary site stays open.
+    const normal = await inContext((auth) => auth.isRegistrationOpen(), { env });
+    expect(normal.value).toBe(true);
+  });
+});
+
 describe("session revocation", () => {
   it("signing out kills the token, not just the cookie", async () => {
     const user = await seedUser();

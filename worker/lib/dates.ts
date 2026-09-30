@@ -10,8 +10,24 @@
  * happen", keep a full ISO timestamp instead.
  */
 
-/** Today as `YYYY-MM-DD`, in UTC. */
-export const today = (): string => new Date().toISOString().slice(0, 10);
+/**
+ * Today as `YYYY-MM-DD`, in UTC unless a time zone is given.
+ *
+ * "Today" is the one place the zone matters: in Perth, the UTC date is still
+ * yesterday until 8am, so a "what's due today" screen built on UTC shows the
+ * wrong day every morning. Pass `c.var.app.timezone` (APP_TIMEZONE) for
+ * anything a person reads as "today"; the arithmetic below stays in UTC.
+ */
+export const today = (timeZone?: string): string => {
+  if (!timeZone) return new Date().toISOString().slice(0, 10);
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+};
 
 /**
  * Add whole days to a `YYYY-MM-DD` date.
@@ -34,15 +50,17 @@ export const daysUntil = (isoDate: string, from: string = today()): number => {
   return Math.round(ms / 86_400_000);
 };
 
-export const isOverdue = (isoDate: string): boolean => daysUntil(isoDate) < 0;
+/** Pass `from` (e.g. `today(zone)`) so "overdue" follows the site's day. */
+export const isOverdue = (isoDate: string, from: string = today()): boolean =>
+  daysUntil(isoDate, from) < 0;
 
 /**
  * "due today", "due in 3 days", "5 days overdue" — plain enough to read at a
  * glance, and the wording most deadline UIs want. Swap the verb per feature if
  * "due" is wrong for yours.
  */
-export const relativeDueLabel = (isoDate: string): string => {
-  const days = daysUntil(isoDate);
+export const relativeDueLabel = (isoDate: string, from: string = today()): string => {
+  const days = daysUntil(isoDate, from);
   if (days === 0) return "due today";
   if (days === 1) return "due tomorrow";
   if (days === -1) return "1 day overdue";

@@ -8,6 +8,7 @@ const app: AppConfig = {
   tagline: "A tagline",
   locale: "en-AU",
   currency: "AUD",
+  timezone: "UTC",
   origin: "https://example.com",
 };
 

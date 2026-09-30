@@ -13,10 +13,12 @@ import {
 export interface LoginProps {
   methods: string[];
   csrfToken?: string;
+  /** Hide the sign-up link when nobody could use it (SINGLE_ACCOUNT). */
+  registrationOpen?: boolean;
 }
 
 export const Login: FC<LoginProps> = (props) => {
-  const { methods, csrfToken } = props;
+  const { methods, csrfToken, registrationOpen = true } = props;
 
   const hasPassword = methods.includes("password");
   const hasPin = methods.includes("pin");
@@ -176,12 +178,14 @@ export const Login: FC<LoginProps> = (props) => {
           <totp-verify-modal></totp-verify-modal>
         </auth-login>
 
-        <p class="px-8 mt-6 text-center text-sm text-muted-foreground">
-          Don't have an account?{" "}
-          <a href="/register" class="underline underline-offset-4 hover:text-primary font-medium">
-            Create Account
-          </a>
-        </p>
+        {registrationOpen ? (
+          <p class="px-8 mt-6 text-center text-sm text-muted-foreground">
+            Don't have an account?{" "}
+            <a href="/register" class="underline underline-offset-4 hover:text-primary font-medium">
+              Create Account
+            </a>
+          </p>
+        ) : null}
       </div>
     </div>
   );
