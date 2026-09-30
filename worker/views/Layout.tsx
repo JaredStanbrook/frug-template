@@ -80,6 +80,23 @@ export const Layout: FC<LayoutProps> = (props) => {
         )}
 
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <!-- The two faces above the fold. Without a preload the browser only
+             discovers them after parsing the stylesheet, and the headline
+             visibly swaps. crossorigin is required even same-origin. -->
+        <link
+          rel="preload"
+          href="/fonts/michroma-400.woff2"
+          as="font"
+          type="font/woff2"
+          crossorigin
+        />
+        <link
+          rel="preload"
+          href="/fonts/plex-sans-400.woff2"
+          as="font"
+          type="font/woff2"
+          crossorigin
+        />
         ${
           isProd
             ? html`<link rel="stylesheet" href="/static/main.css?v=${props.assetVersion}" />`
@@ -97,7 +114,10 @@ export const Layout: FC<LayoutProps> = (props) => {
         ${
           props.meta.bare
             ? html`<header class="border-b">
-                <div class="flex h-14 items-center px-4 font-bold text-lg">${props.app.name}</div>
+                <div class="flex h-14 items-center px-4 font-display text-base tracking-wide">
+                  ${props.app.name}
+                </div>
+                <div class="retro-stripes h-[9px]" aria-hidden="true"></div>
               </header>`
             : NavBar({
                 appName: props.app.name,
@@ -120,9 +140,13 @@ export const Layout: FC<LayoutProps> = (props) => {
 
         <app-toaster></app-toaster>
 
-        <footer class="py-6 md:px-8 md:py-0">
-          <div class="flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
-            <p class="text-center text-sm leading-loose text-muted-foreground md:text-left">
+        <footer class="mt-16">
+          <div class="retro-stripes h-[9px]" aria-hidden="true"></div>
+          <div
+            class="flex flex-col items-center justify-between gap-2 px-4 py-6 md:h-24 md:flex-row md:px-8 md:py-0"
+          >
+            <p class="font-display text-xs tracking-wide text-foreground">${props.app.name}</p>
+            <p class="text-center text-sm leading-loose text-muted-foreground md:text-right">
               ${props.app.tagline || props.app.name}
             </p>
           </div>

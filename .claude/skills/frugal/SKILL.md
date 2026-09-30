@@ -18,7 +18,7 @@ is about _how to add to it_ without breaking the parts that are already right.
 Check before doing anything else, because the answer changes what you do:
 
 ```bash
-grep -in "change.me\|0000000\|frug-app" wrangler.jsonc | grep -v ":\s*//"
+grep -in "change.me\|0000000\|frug-app\|frugal-template-db\|0d98fddd\|70192fe3\|frugal.stanbrook" wrangler.jsonc | grep -v ":\s*//"
 ```
 
 **Any hit outside a comment** means this repo has never been configured. Do not
@@ -33,8 +33,15 @@ deploy, because its bindings point at placeholders.
 One thing that holds in both cases: **never configure the template repository
 itself.** Real ids belong in the repo made *from* the template. A configured
 template hands the next site someone else's database, and its first deploy
-migrates live data. If you find real ids in a repo that is meant to be the
-template, say so rather than building on it.
+migrates live data.
+
+The one exception is deliberate: the template runs as a public demo, so its
+D1 (`frugal-template-db`, `0d98fddd-…`) and KV (`70192fe3…`) entries hold the
+demo's real ids, and its domain is `frugal.stanbrook.me`. They are placeholders for every other purpose — the check
+above matches them, and `npm run configure` replaces them. A site that still
+carries them shares the demo's database and sessions, so they must never
+survive into a real site. Any *other* real id in the template repo is a
+mistake; say so rather than building on it.
 
 ## Four things that matter most
 

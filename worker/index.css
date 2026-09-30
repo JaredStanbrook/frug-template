@@ -1,36 +1,72 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* BASE THEME: "Light" (Refined)
-  Vibe: Airy, sun-washed, morning light. 
-  Soft off-whites and warm greys replace clinical white.
-*/
+/* THEME: "Retro-futurist"
+   Space-age mission control, circa 1969: lunar-grey daylight panels and a
+   deep-navy night sky, Apollo orange for the one action on a page, teal and
+   mustard as instrument accents. Borders are drawn, and shadows are hard
+   offsets like a two-colour print rather than soft blurs, so a card keeps its
+   edge in both modes. */
+
+/* Self-hosted (SIL OFL 1.1): no font CDN, no third party on first paint.
+   Michroma is a Microgramma-style extended face, the lettering of that era's
+   instrument panels; it has one weight, so it is kept to headlines.
+   IBM Plex Sans carries the body. Renaming a file busts its year-long cache. */
+@font-face {
+  font-family: "Michroma";
+  src: url("/fonts/michroma-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fonts/plex-sans-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fonts/plex-sans-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fonts/plex-sans-600.woff2") format("woff2");
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* Tells the browser to render native controls (checkboxes, radios,
      scrollbars, date pickers) in the matching scheme. Without it a native
      checkbox stays light-on-dark and looks pasted on. */
   color-scheme: light;
 
-  --background: oklch(0.985 0.002 90); /* Soft warm white, not sterile */
-  --foreground: oklch(0.25 0.02 80); /* Soft deep grey-brown text */
-  --card: oklch(1 0 0); /* Pure white cards for clean lift */
-  --card-foreground: oklch(0.25 0.02 80);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.02 80);
+  --background: oklch(0.95 0.008 210); /* Lunar grey, a breath of teal */
+  --foreground: oklch(0.25 0.06 265); /* Navy ink */
+  --card: oklch(0.985 0.004 210);
+  --card-foreground: oklch(0.25 0.06 265);
+  --popover: oklch(0.985 0.004 210);
+  --popover-foreground: oklch(0.25 0.06 265);
 
-  --primary: oklch(0.55 0.08 140); /* Muted eucalyptus green */
-  --primary-foreground: oklch(0.98 0.005 140);
+  --primary: oklch(0.56 0.18 40); /* Apollo orange */
+  --primary-foreground: oklch(0.985 0.01 80);
 
-  --secondary: oklch(0.94 0.03 95); /* Warm sandstone wash */
-  --secondary-foreground: oklch(0.35 0.04 80);
+  --secondary: oklch(0.9 0.045 195); /* Instrument teal wash */
+  --secondary-foreground: oklch(0.3 0.06 215);
 
-  --muted: oklch(0.96 0.01 90);
-  --muted-foreground: oklch(0.55 0.02 80);
+  --muted: oklch(0.915 0.012 225);
+  --muted-foreground: oklch(0.46 0.035 255);
 
-  --accent: oklch(0.94 0.03 95);
-  --accent-foreground: oklch(0.35 0.04 80);
+  --accent: oklch(0.91 0.06 85); /* Mustard wash */
+  --accent-foreground: oklch(0.25 0.06 265);
 
-  --destructive: oklch(0.6 0.18 25);
+  --destructive: oklch(0.55 0.2 25);
   --destructive-foreground: oklch(0.98 0 0);
 
   /* Status roles, so a feature never has to reach for a raw palette colour.
@@ -38,110 +74,108 @@
      they render dark-on-dark the moment the theme flips — and that is exactly
      what happens when the theme offers no semantic token for "this went well"
      or "this needs attention". */
-  --success: oklch(0.55 0.13 150);
+  --success: oklch(0.52 0.11 175);
   --success-foreground: oklch(0.98 0 0);
-  --warning: oklch(0.82 0.16 85);
-  --warning-foreground: oklch(0.25 0.03 85);
+  --warning: oklch(0.82 0.15 82);
+  --warning-foreground: oklch(0.25 0.05 80);
 
-  --border: oklch(0.92 0.01 90); /* Subtle warm grey border */
-  --input: oklch(0.92 0.01 90);
-  --ring: oklch(0.55 0.08 140);
+  --border: oklch(0.82 0.025 245);
+  --input: oklch(0.76 0.03 250);
+  --ring: oklch(0.56 0.18 40);
 
-  --chart-1: oklch(0.55 0.08 140);
-  --chart-2: oklch(0.65 0.12 60);
-  --chart-3: oklch(0.5 0.06 200);
-  --chart-4: oklch(0.75 0.14 85);
-  --chart-5: oklch(0.7 0.1 40);
+  --chart-1: oklch(0.56 0.18 40); /* Orange */
+  --chart-2: oklch(0.56 0.1 195); /* Teal */
+  --chart-3: oklch(0.78 0.15 80); /* Mustard */
+  --chart-4: oklch(0.52 0.16 350); /* Magenta */
+  --chart-5: oklch(0.4 0.1 265); /* Navy */
 
-  --sidebar: oklch(0.975 0.005 90);
-  --sidebar-foreground: oklch(0.3 0.02 80);
-  --sidebar-primary: oklch(0.55 0.08 140);
-  --sidebar-primary-foreground: oklch(0.98 0.005 140);
-  --sidebar-accent: oklch(0.94 0.02 90);
-  --sidebar-accent-foreground: oklch(0.3 0.02 80);
-  --sidebar-border: oklch(0.9 0.01 90);
-  --sidebar-ring: oklch(0.55 0.08 140);
+  /* The colour of the hard offset shadow. Its own token because it is not a
+     border and not text, and it wants a different weight in each mode. */
+  --shadow-ink: oklch(0.25 0.06 265 / 0.22);
 
-  /* System font stacks: nothing to download, no layout shift, and the text is
-     painted on the first frame. The theme previously named Montserrat, Domine
-     and Source Code Pro without ever loading them, so every page silently fell
-     back to these anyway — this just makes the declaration honest.
+  --sidebar: oklch(0.93 0.01 215);
+  --sidebar-foreground: oklch(0.25 0.06 265);
+  --sidebar-primary: oklch(0.56 0.18 40);
+  --sidebar-primary-foreground: oklch(0.985 0.01 80);
+  --sidebar-accent: oklch(0.91 0.06 85);
+  --sidebar-accent-foreground: oklch(0.25 0.06 265);
+  --sidebar-border: oklch(0.82 0.025 245);
+  --sidebar-ring: oklch(0.56 0.18 40);
 
-     To use a real typeface, self-host the woff2 in public/ and add an
-     @font-face here with `font-display: swap`. Do not link a font CDN: it
-     reintroduces the third-party runtime dependency the client bundle exists
-     to avoid, and blocks first paint on a third party. */
+  /* Named faces first, then the system stack they fall back to while the
+     woff2 loads (`font-display: swap`) or if it never does. */
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-display: "Michroma", "Eurostile", "Microgramma", var(--font-sans);
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
-  --radius: 0.5rem; /* Modern but soft radius */
-  --shadow-2xs: 0px 5px 10px -2px hsl(40 20% 60% / 0.05);
-  --shadow-xs: 0px 5px 10px -2px hsl(40 20% 60% / 0.05);
-  --shadow-sm: 0px 5px 10px -2px hsl(40 20% 60% / 0.08), 0px 1px 2px -3px hsl(40 20% 60% / 0.08);
-  --shadow: 0px 5px 10px -2px hsl(40 20% 60% / 0.08), 0px 1px 2px -3px hsl(40 20% 60% / 0.08);
-  --shadow-md: 0px 5px 10px -2px hsl(40 20% 60% / 0.1), 0px 2px 4px -3px hsl(40 20% 60% / 0.1);
-  --shadow-lg: 0px 5px 10px -2px hsl(40 20% 60% / 0.1), 0px 4px 6px -3px hsl(40 20% 60% / 0.1);
-  --shadow-xl: 0px 5px 10px -2px hsl(40 20% 60% / 0.1), 0px 8px 10px -3px hsl(40 20% 60% / 0.1);
-  --shadow-2xl: 0px 5px 10px -2px hsl(40 20% 60% / 0.25);
+  --radius: 0.75rem; /* Rounded like a console bezel */
+  --shadow-2xs: 1px 1px 0 0 var(--shadow-ink);
+  --shadow-xs: 2px 2px 0 0 var(--shadow-ink);
+  --shadow-sm: 3px 3px 0 0 var(--shadow-ink);
+  --shadow: 3px 3px 0 0 var(--shadow-ink);
+  --shadow-md: 4px 4px 0 0 var(--shadow-ink);
+  --shadow-lg: 6px 6px 0 0 var(--shadow-ink);
+  --shadow-xl: 8px 8px 0 0 var(--shadow-ink);
+  --shadow-2xl: 12px 12px 0 0 var(--shadow-ink);
 }
 
-/* THEME: "Dark" (Refined)
-  Vibe: Evening hills atmosphere. 
-  Deep charcoal/warm black (no pure blacks), Jarrah accents.
-*/
+/* Night side: deep navy, never black, with starlight text. Colours lift in
+   lightness rather than invert, so orange still reads as the one action. */
 .dark {
   color-scheme: dark;
 
-  --background: oklch(0.16 0.01 280); /* Deep charcoal, slight cool undertone */
-  --foreground: oklch(0.9 0.01 280); /* Soft off-white */
-  --card: oklch(0.2 0.01 280); /* Slightly raised surface */
-  --card-foreground: oklch(0.9 0.01 280);
-  --popover: oklch(0.2 0.01 280);
-  --popover-foreground: oklch(0.9 0.01 280);
+  --background: oklch(0.2 0.045 268);
+  --foreground: oklch(0.94 0.015 90);
+  --card: oklch(0.245 0.05 268);
+  --card-foreground: oklch(0.94 0.015 90);
+  --popover: oklch(0.245 0.05 268);
+  --popover-foreground: oklch(0.94 0.015 90);
 
-  --primary: oklch(0.65 0.15 45); /* Warm Jarrah / Amber highlight */
-  --primary-foreground: oklch(0.16 0.01 280);
+  --primary: oklch(0.73 0.16 52);
+  --primary-foreground: oklch(0.2 0.045 268);
 
-  --secondary: oklch(0.25 0.02 280);
-  --secondary-foreground: oklch(0.85 0.01 280);
+  --secondary: oklch(0.31 0.055 225);
+  --secondary-foreground: oklch(0.92 0.025 195);
 
-  --muted: oklch(0.25 0.02 280);
-  --muted-foreground: oklch(0.65 0.02 280);
+  --muted: oklch(0.28 0.045 268);
+  --muted-foreground: oklch(0.75 0.03 250);
 
-  --accent: oklch(0.28 0.02 280);
-  --accent-foreground: oklch(0.9 0.01 280);
+  --accent: oklch(0.33 0.06 255);
+  --accent-foreground: oklch(0.94 0.015 90);
 
-  --destructive: oklch(0.6 0.18 25);
-  --destructive-foreground: oklch(0.95 0 0);
+  --destructive: oklch(0.66 0.2 25);
+  --destructive-foreground: oklch(0.98 0 0);
 
   /* Brighter, so both still clear 4.5:1 against a dark field. */
-  --success: oklch(0.72 0.16 150);
-  --success-foreground: oklch(0.16 0.01 280);
-  --warning: oklch(0.85 0.16 85);
-  --warning-foreground: oklch(0.16 0.01 280);
+  --success: oklch(0.76 0.13 175);
+  --success-foreground: oklch(0.2 0.045 268);
+  --warning: oklch(0.85 0.15 85);
+  --warning-foreground: oklch(0.2 0.045 268);
 
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.65 0.15 45);
+  --border: oklch(0.4 0.055 262);
+  --input: oklch(0.46 0.055 258);
+  --ring: oklch(0.73 0.16 52);
 
-  --chart-1: oklch(0.65 0.15 45); /* Jarrah */
-  --chart-2: oklch(0.55 0.1 140); /* Deep Bush Green */
-  --chart-3: oklch(0.7 0.12 80); /* Clay */
-  --chart-4: oklch(0.5 0.08 240); /* Night Sky */
-  --chart-5: oklch(0.75 0.1 320); /* Dusk Purple */
+  --chart-1: oklch(0.73 0.16 52);
+  --chart-2: oklch(0.75 0.11 195);
+  --chart-3: oklch(0.85 0.15 85);
+  --chart-4: oklch(0.72 0.15 350);
+  --chart-5: oklch(0.72 0.1 280);
 
-  --sidebar: oklch(0.14 0.01 280);
-  --sidebar-foreground: oklch(0.9 0.01 280);
-  --sidebar-primary: oklch(0.65 0.15 45);
-  --sidebar-primary-foreground: oklch(0.16 0.01 280);
-  --sidebar-accent: oklch(0.22 0.01 280);
-  --sidebar-accent-foreground: oklch(0.9 0.01 280);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.65 0.15 45);
+  --shadow-ink: oklch(0.12 0.04 268 / 0.9);
+
+  --sidebar: oklch(0.18 0.045 268);
+  --sidebar-foreground: oklch(0.94 0.015 90);
+  --sidebar-primary: oklch(0.73 0.16 52);
+  --sidebar-primary-foreground: oklch(0.2 0.045 268);
+  --sidebar-accent: oklch(0.33 0.06 255);
+  --sidebar-accent-foreground: oklch(0.94 0.015 90);
+  --sidebar-border: oklch(0.4 0.055 262);
+  --sidebar-ring: oklch(0.73 0.16 52);
 }
 
 @theme inline {
@@ -183,6 +217,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 
   --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
 
@@ -195,6 +230,7 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
 
   --shadow-2xs: var(--shadow-2xs);
   --shadow-xs: var(--shadow-xs);
@@ -218,6 +254,27 @@
   ::file-selector-button {
     border-color: var(--color-border, currentColor);
   }
+
+  /* Page titles take the display face everywhere, so a new page gets it
+     without remembering a class. Michroma has one weight: refuse the faux
+     bold a `font-bold` would otherwise smear across it. */
+  h1 {
+    font-family: var(--font-display);
+    font-synthesis: none;
+    letter-spacing: 0.01em;
+  }
+}
+
+/* The signature: a mustard / orange / teal racing band, drawn from chart
+   tokens so it follows the theme. Structural, not decorative filler — it
+   marks the top and bottom edges of the page chrome. */
+@utility retro-stripes {
+  background-image: linear-gradient(
+    to bottom,
+    var(--chart-3) 0 33.34%,
+    var(--chart-1) 33.34% 66.67%,
+    var(--chart-2) 66.67% 100%
+  );
 }
 
 /* Container for scrolling text */

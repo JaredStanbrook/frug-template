@@ -86,16 +86,26 @@ Opacity modifiers stay theme-correct and are the idiomatic way to get a tint:
 
 ## Non-colour tokens
 
-- **Radius** — `--radius: 0.5rem` drives `rounded-sm` (4px), `rounded-md`
-  (6px), `rounded-lg` (8px), `rounded-xl` (12px). `rounded-lg` is the house
-  default for cards, buttons and inputs; `rounded-xl`/`rounded-2xl` for large
-  panels; `rounded-full` for avatars and pills. Change `--radius` alone to make
-  the whole app rounder or sharper.
-- **Fonts** — `font-sans` (Montserrat), `font-serif` (Domine), `font-mono`
-  (Source Code Pro), from `--font-*`.
-- **Shadows** — `shadow-2xs` … `shadow-2xl`. Cards use `shadow-sm`; floating
-  surfaces `shadow-md`. Prefer a border over a heavy shadow: shadows are nearly
-  invisible in dark mode, so a card that relies on one alone loses its edge.
+- **Radius** — `--radius: 0.75rem` drives `rounded-sm` (8px), `rounded-md`
+  (10px), `rounded-lg` (12px), `rounded-xl` (16px), `rounded-2xl` (20px).
+  `rounded-lg` is the house default for cards, buttons and inputs;
+  `rounded-xl`/`rounded-2xl` for large panels; `rounded-full` for avatars,
+  pills and the capsule buttons on the home page. Change `--radius` alone to
+  make the whole app rounder or sharper.
+- **Fonts** — `font-sans` (IBM Plex Sans, body), `font-display` (Michroma,
+  an extended space-age face with a single weight), `font-serif` and
+  `font-mono` (system stacks). Both named faces are self-hosted woff2 in
+  `public/fonts/`, declared with `@font-face` in `index.css` and cached for a
+  year by `public/_headers` — so a changed font needs a new file name. Every
+  `h1` takes `font-display` from a base rule; use the class for wordmarks.
+- **Shadows** — `shadow-2xs` … `shadow-2xl` are hard offsets (no blur) in
+  `--shadow-ink`, a token with its own light and dark value. Cards use
+  `shadow-sm`; floating surfaces `shadow-md`. Always pair a shadow with a
+  `border`: in dark mode the ink is close to the page and the border is what
+  keeps the edge.
+- **`retro-stripes`** — the mustard / orange / teal band under the header and
+  above the footer, built from `chart-3`, `chart-1` and `chart-2`. Give it a
+  height (`h-[9px]`); it is page chrome, not something to put on every card.
 - **`text-tiny`** — 0.625rem, for dense metadata.
 
 ## Restyling the app

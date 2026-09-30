@@ -46,7 +46,7 @@ export const ProfilePage: FC<ProfileProps> = (props) => {
       <div class="space-y-4 animate-in fade-in duration-300">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-3xl font-bold tracking-tight">Profile Settings</h2>
+            <h1 class="text-3xl font-bold tracking-tight">Profile Settings</h1>
             <p class="text-muted-foreground">Manage your account settings and preferences.</p>
           </div>
         </div>
