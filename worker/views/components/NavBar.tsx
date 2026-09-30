@@ -20,6 +20,28 @@ const menuConfig: Record<string, Array<{ to: string; name: string }>> = {
 // --- COMPONENTS ---
 
 /**
+ * OrbitMark
+ * A planet with a tilted ring: the brand mark. Drawn in currentColor and
+ * theme tokens so it follows light and dark without its own colours.
+ */
+export const OrbitMark = () => html`
+  <svg viewBox="0 0 32 32" class="h-7 w-7 shrink-0" aria-hidden="true">
+    <circle cx="16" cy="16" r="7" class="fill-primary" />
+    <ellipse
+      cx="16"
+      cy="16"
+      rx="14"
+      ry="5"
+      transform="rotate(-20 16 16)"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+    />
+    <circle cx="28.5" cy="11.5" r="2" class="fill-chart-2" />
+  </svg>
+`;
+
+/**
  * ThemeToggle
  * Robust logic with large touch targets for mobile.
  */
@@ -183,13 +205,16 @@ export const NavBar = ({ appName, user, currentPath }: NavBarProps) => {
 
   return html`
     <header
-      class="fixed top-0 left-0 right-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      class="fixed top-0 left-0 right-0 z-40 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75"
     >
-      <div class="flex h-14 items-center justify-between px-4">
+      <!-- h-14 minus the 9px stripe band, so the header stays 3.5rem and main's pt-14 still clears it. -->
+      <div class="flex h-[calc(3.5rem-9px)] items-center justify-between px-4">
         <div class="flex items-center gap-6">
-          <a href="/" class="flex h-11 items-center gap-2 font-bold text-lg mr-4">
-            <div class="h-6 w-6 bg-primary rounded-md"></div>
-            ${appName}
+          <a
+            href="/"
+            class="flex h-11 items-center gap-2.5 font-display text-base tracking-wide mr-4"
+          >
+            ${OrbitMark()} ${appName}
           </a>
 
           <nav class="hidden lg:flex items-center gap-6">
@@ -223,7 +248,7 @@ export const NavBar = ({ appName, user, currentPath }: NavBarProps) => {
                       >
                       <a
                         href="/register"
-                        class="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-4 transition-colors"
+                        class="inline-flex items-center justify-center rounded-full text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 h-11 px-5 transition-colors"
                         >Get Started</a
                       >
                     </div>
@@ -241,6 +266,7 @@ export const NavBar = ({ appName, user, currentPath }: NavBarProps) => {
           </button>
         </div>
       </div>
+      <div class="retro-stripes h-[9px]" aria-hidden="true"></div>
     </header>
 
     <div
@@ -248,9 +274,8 @@ export const NavBar = ({ appName, user, currentPath }: NavBarProps) => {
       class="hidden fixed inset-0 z-[100] bg-background text-foreground lg:hidden flex flex-col animate-in slide-in-from-right-10 duration-200"
     >
       <div class="flex items-center justify-between px-4 h-14 border-b">
-        <span class="font-bold text-lg flex items-center gap-2">
-          <div class="h-6 w-6 bg-primary rounded-sm"></div>
-          Menu
+        <span class="font-display text-base tracking-wide flex items-center gap-2.5">
+          ${OrbitMark()} Menu
         </span>
         <button
           id="mobile-menu-close"
@@ -302,7 +327,7 @@ export const NavBar = ({ appName, user, currentPath }: NavBarProps) => {
                     </a>
                     <a
                       href="/register"
-                      class="inline-flex items-center justify-center rounded-lg h-12 bg-primary px-4 py-2 text-base font-medium text-primary-foreground hover:bg-primary/90"
+                      class="inline-flex items-center justify-center rounded-full h-12 bg-primary px-4 py-2 text-base font-medium text-primary-foreground shadow-xs hover:bg-primary/90"
                     >
                       Get Started
                     </a>

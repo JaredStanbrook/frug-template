@@ -28,6 +28,10 @@ site goes from template to live without a terminal.
   guarded routes, ownership checks, HTMX fragments, soft deletes) to copy the
   shape of and then delete.
 - Admin-gated `/dev` database inspector and `/admin/logs` audit view.
+- A retro-futurist theme: lunar-grey and deep-navy palettes with an Apollo
+  orange primary, self-hosted Michroma and IBM Plex Sans, hard offset shadows,
+  a tri-colour stripe band framing the page chrome, an orbit brand mark and a
+  home hero built around it. All of it is token-driven in `worker/index.css`.
 - `RATE_LIMITER` binding, wired into the auth API as a per-IP throttle ahead of
   any database work. Skipped when the binding is absent, so local dev and tests
   are unaffected.
