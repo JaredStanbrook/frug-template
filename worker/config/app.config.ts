@@ -21,6 +21,12 @@ export interface AppConfig {
   timezone: string;
   /** Absolute origin the site is served from, used for links in emails/PDFs. */
   origin: string;
+  /**
+   * Default link-preview image, e.g. "/og.png" (1200×630). Used for every
+   * page that does not set its own. Empty means none — generate one with
+   * `scripts/og-image.mjs` rather than shipping the template's.
+   */
+  ogImage?: string;
 }
 
 export function parseAppConfig(env: any): AppConfig {
@@ -31,6 +37,7 @@ export function parseAppConfig(env: any): AppConfig {
     currency: env.APP_CURRENCY || "AUD",
     timezone: validTimeZone(env.APP_TIMEZONE) ?? "UTC",
     origin: env.ORIGIN || "http://localhost:3000",
+    ogImage: env.APP_OG_IMAGE || "",
   };
 }
 

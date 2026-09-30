@@ -32,6 +32,14 @@
     "enabled": true,
   },
 
+  // A new id on every deploy, read at runtime. Layout.tsx appends it to
+  // /static/main.css, which is what makes the year-long cache in
+  // public/_headers safe: each deploy asks for a new URL. (A Vite `define`
+  // cannot do this — `wrangler deploy` bundles worker/ itself.)
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA",
+  },
+
   "dev": {
     "port": 3000,
     "local_protocol": "http",
@@ -114,6 +122,10 @@
     // page asks (`today(c.var.app.timezone)` in worker/lib/dates.ts). UTC is
     // right for storage and wrong for "what's due today" in Perth before 8am.
     "APP_TIMEZONE": "UTC",
+    // Default link-preview image for pages that set none, e.g. "/og.png"
+    // (1200×630, in public/). Empty means none. Generate one from the site's
+    // own name and colours with `node scripts/og-image.mjs`.
+    "APP_OG_IMAGE": "",
 
     // --- CORE AUTH ---
     // Enabled methods: passkey, password, pin, totp, email, sms

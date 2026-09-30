@@ -6,6 +6,7 @@ import { Login } from "@server/views/pages/Login";
 import { Register } from "@server/views/pages/Register";
 import type { AppEnv } from "../../types";
 import { flashToast, htmxRedirect } from "@server/lib/htmx-helpers";
+import { websiteSchema } from "@server/lib/structured-data";
 
 export const webAuth = new Hono<AppEnv>();
 
@@ -13,11 +14,14 @@ webAuth.get("/", (c) => {
   const { auth, app } = c.var;
 
   return c.render(<Home app={app} user={auth.user} />, {
-    // The home page is the site's own entry in search results, so it gets the
-    // tagline as its description and no "Home ·" prefix on the title.
-    title: undefined,
+    // The home page is the site's own entry in search results. The site name
+    // alone tells a searcher who has never heard of it nothing, so the title
+    // says what the site is — "{tagline} · {name}" — and the tagline doubles
+    // as the description. A real site should write both for its home page.
+    title: app.tagline || undefined,
     description: app.tagline,
     type: "website",
+    jsonLd: [websiteSchema(app)],
   });
 });
 

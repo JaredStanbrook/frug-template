@@ -35,6 +35,13 @@ export interface PageMeta {
   /** `website` for landing pages, `article` for a single piece of content. */
   type?: "website" | "article";
   /**
+   * Schema.org objects describing this page, emitted as JSON-LD. Build them
+   * with `lib/structured-data.ts`, and only describe what the page visibly
+   * says: markup that disagrees with the page is treated as spam, and an
+   * invented rating or review is the fastest way to lose rich results.
+   */
+  jsonLd?: Record<string, unknown>[];
+  /**
    * Render without the site nav.
    *
    * For a page that is public but does not belong to the signed-in app — a
@@ -56,6 +63,7 @@ export interface ResolvedMeta {
   locale: string;
   /** Layout rather than SEO, but it rides along so Layout has one props bag. */
   bare: boolean;
+  jsonLd: Record<string, unknown>[];
 }
 
 /**
@@ -89,15 +97,31 @@ export function resolveMeta(meta: PageMeta, app: AppConfig, url: URL): ResolvedM
     title: meta.title ? `${meta.title} · ${app.name}` : app.name,
     description: meta.description || app.tagline || "",
     canonical,
-    image: meta.image ? new URL(meta.image, origin).toString() : undefined,
+    // A page's own image, else the site default (APP_OG_IMAGE). With neither,
+    // a shared link renders as a small, image-less card.
+    image:
+      (meta.image ?? app.ogImage)
+        ? new URL((meta.image ?? app.ogImage)!, origin).toString()
+        : undefined,
     // A query string means a filtered view of a page that already exists.
     noindex: meta.noindex ?? (isNoindexPath(url.pathname) || hasQuery),
     type: meta.type ?? "website",
     siteName: app.name,
     locale: app.locale,
     bare: meta.bare ?? false,
+    jsonLd: meta.jsonLd ?? [],
   };
 }
+
+/**
+ * Serialise JSON-LD for a `<script>` element.
+ *
+ * `JSON.stringify` alone is not safe inside HTML: a string containing
+ * `</script>` would close the element early. Escaping `<` as `\u003c` keeps
+ * the JSON identical to a parser and inert to the HTML tokenizer.
+ */
+export const jsonLdScript = (data: Record<string, unknown>) =>
+  JSON.stringify(data).replace(/</g, "\\u003c");
 
 /**
  * `robots.txt`.

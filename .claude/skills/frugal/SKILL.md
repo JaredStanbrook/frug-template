@@ -241,8 +241,9 @@ A feature that renders but is invisible is almost always a missed line here:
 - [ ] Public page? Set `title` and `description` in `c.render`, and add it to
       `STATIC_ROUTES` in `worker/routes/seo.ts`. Behind a guard? Leave it out of
       the sitemap. See `references/seo.md`
-- [ ] Client-side element? Import it in `worker/components/main.ts` or it
-      never registers
+- [ ] Client-side element? Register it in `worker/components/main.ts` or it
+      never loads: a top-level import if most pages render it, or an `ISLANDS`
+      entry per tag if only a few do
 
 ### Routes
 
@@ -322,30 +323,35 @@ More in `references/backend.md` and the repo's `endpoints.md`.
 
 ## Search and sharing
 
-Server rendering already does the hard part. `worker/lib/seo.ts` gives every
-page a canonical built from `ORIGIN`, Open Graph tags, `noindex` on sign-in,
-admin and query-string URLs, and an environment-aware `robots.txt`, and
-`worker/routes/seo.ts` builds the sitemap. What a route owes is a real
-`title` and `description`, one `<h1>`, and a sitemap entry if it's public.
+Server rendering already does the hard part, and the rest is built in.
+`worker/lib/seo.ts` gives every page a canonical from `ORIGIN`, Open Graph and
+Twitter tags, JSON-LD via `jsonLd`, and `noindex` on sign-in, admin and
+query-string URLs. `worker/routes/seo.ts` serves an environment-aware
+`robots.txt` and the sitemap. On top of that:
 
-What the template does **not** do, and a real site almost always needs, is in
-`references/seo.md` with tested code: an HTTP → HTTPS and trailing-slash 301, a
-404 page with a body, a default share image, honest structured data, long-lived
-caching, and keeping staff-only JavaScript off public pages.
+- `canonical-url.middleware.ts` 301s HTTP → HTTPS and trailing slashes away;
+- `NotFound.tsx` is a real 404 page;
+- `APP_OG_IMAGE` plus `scripts/og-image.mjs` give every page a share image;
+- `public/_headers` with the `CF_VERSION_METADATA` binding caches CSS for a
+  year;
+- `ISLANDS` in `main.ts` keeps auth JavaScript off public pages.
 
-Traps that pass every test:
+What a route owes: a real `title` and `description`, one `<h1>` with no
+skipped heading levels, and a sitemap entry if it's public. The full guide,
+including how to audit a site, is `references/seo.md`.
+
+Traps that pass every test, each the reason a built-in piece looks the way it
+does:
 
 - **Cloudflare answers `http://` with a 200** unless "Always Use HTTPS" is on,
   so every page exists twice.
-- **`wrangler dev` rewrites the host to production over plain HTTP**, so an
-  HTTPS redirect that trusts `c.req.url` loops a local preview. Read the scheme
-  from `CF-Visitor`.
+- **`wrangler dev` rewrites the host to production over plain HTTP.** The
+  redirect reads `CF-Visitor`, not `c.req.url`; trusting the URL loops a local
+  preview.
 - **A Vite `define` never reaches production:** `wrangler deploy` bundles
-  `worker/index.ts` itself. Take per-deploy values from the runtime, such as the
-  `version_metadata` binding.
-- **`?v=` on `client.js` runs the bundle twice** once anything is lazy-loaded,
-  because the chunks import it by its bare URL. Version the stylesheet, not the
-  entry script.
+  `worker/index.ts` itself. Per-deploy values come from the runtime.
+- **`?v=` on `client.js` runs the bundle twice**, because the lazy chunks
+  import it by its bare URL. Only `main.css` is versioned.
 - **A UI-only parameter (`?topic=`) gets `noindex` plus a canonical** by
   default. That's a conflicting signal; pass `noindex: false` there.
 - **Structured data must match the visible page.** No rating, review or FAQ
@@ -428,7 +434,7 @@ rather than a rollback. `docs/deploy.md` covers setup, failures and rollback.
   response patterns, testing.
 - `references/frontend.md` — server views vs client islands, HTMX attributes,
   when a Lit component is justified and how to write one.
-- `references/seo.md` — search and sharing: the per-page checklist, titles and
-  descriptions, canonicals and the sitemap, silent traps, recipes (redirects,
-  404 page, share image, structured data, caching, lazy islands), how to audit a
-  site, and the owner actions code can't do.
+- `references/seo.md` — search and sharing: what's built in and how to extend
+  it (redirects, 404 page, share image, structured data, caching, lazy
+  islands), the per-page checklist, titles and descriptions, silent traps, how
+  to audit a site, and the owner actions code can't do.

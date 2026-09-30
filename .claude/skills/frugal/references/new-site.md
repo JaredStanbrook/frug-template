@@ -147,6 +147,17 @@ fix than four of them.
 Work through the brief's features in the order the user listed them, unless
 one clearly blocks another.
 
+Before handing back a site with public pages, make it presentable to search
+engines and link previews (`references/seo.md`):
+
+- Give the home page its own `title` and `description`, rather than the
+  tagline fallback, and every public page the same.
+- Put each public page in `STATIC_ROUTES` in `worker/routes/seo.ts`.
+- Generate a share image with `node scripts/og-image.mjs`, then set
+  `"APP_OG_IMAGE": "/og.png"`.
+- Replace the example links on `views/pages/NotFound.tsx` with the site's main
+  pages.
+
 ## Step 5 — Strip the scaffolding
 
 Once at least one real feature works, remove the example so it does not ship:
@@ -182,6 +193,14 @@ Tell the user, concretely:
   public sign-up.
 - That `SINGLE_ACCOUNT` = `"true"` makes a one-owner site: only
   `BOOTSTRAP_ADMIN_EMAIL` can register, once, and sign-up then closes for good.
+- For a public site, the search steps only they can take:
+  - turn on **Always Use HTTPS** in Cloudflare;
+  - verify the domain in **Google Search Console** with a DNS TXT record, and
+    submit `/sitemap.xml`;
+  - import the property into **Bing Webmaster Tools**.
+
+  Details are in `references/seo.md` → "Owner actions". Don't say any of these
+  are done unless you did them.
 
 ## What not to do
 

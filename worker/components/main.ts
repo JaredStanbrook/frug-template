@@ -12,12 +12,37 @@ import "./ui/AppToaster";
 import "./ui/ThemeProvider";
 import "./ui/ThemeToggle";
 import "./ui/NavUserMenu";
-import "./ui/ProfileIslands";
 
-import "./auth/AuthRegister";
-import "./auth/AuthLogin";
-import "./auth/TotpSetupButton";
-import "./auth/TotpVerifyModal";
+/**
+ * Components only some pages use — sign-in, registration, the profile —
+ * loaded when one of their elements is actually on the page.
+ *
+ * They pull in the QR-code library and the WebAuthn client, roughly a third
+ * of the bundle, and every public visitor would otherwise download and parse
+ * them on every page for nothing. Checked again after each HTMX swap, since a
+ * fragment can bring one in; the element upgrades itself the moment its
+ * module defines it.
+ *
+ * A new client component: import it above if most pages render it, or add
+ * one entry per tag it defines here if only a few do.
+ */
+const ISLANDS: Record<string, () => Promise<unknown>> = {
+  "auth-login": () => import("./auth/AuthLogin"),
+  "auth-register": () => import("./auth/AuthRegister"),
+  "totp-verify-modal": () => import("./auth/TotpVerifyModal"),
+  "totp-setup-button": () => import("./auth/TotpSetupButton"),
+  "profile-editable-name": () => import("./ui/ProfileIslands"),
+  "profile-password-modal": () => import("./ui/ProfileIslands"),
+  "profile-delete-modal": () => import("./ui/ProfileIslands"),
+};
+
+const loadIslands = (root: ParentNode = document) => {
+  for (const [tag, load] of Object.entries(ISLANDS)) {
+    if (!customElements.get(tag) && root.querySelector(tag)) {
+      load().catch((err) => console.error(`[islands] could not load <${tag}>:`, err));
+    }
+  }
+};
 
 declare global {
   interface Window {
@@ -33,10 +58,16 @@ declare global {
 window.renderIcons = renderIcons;
 
 // Render icons for markup HTMX just swapped in.
-document.body.addEventListener("htmx:afterSwap", () => renderIcons());
+document.body.addEventListener("htmx:afterSwap", () => {
+  renderIcons();
+  loadIslands();
+});
 
 // And for the server-rendered page itself.
-document.addEventListener("DOMContentLoaded", () => renderIcons());
+document.addEventListener("DOMContentLoaded", () => {
+  renderIcons();
+  loadIslands();
+});
 
 /**
  * Optional: Add loading state to body during HTMX requests

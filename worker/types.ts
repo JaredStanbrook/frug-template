@@ -60,6 +60,11 @@ export type Bindings = Vars & {
   R2: R2Bucket;
   /** Per-IP throttle on the auth API. See worker/routes/api/auth.ts. */
   RATE_LIMITER: RateLimiter;
+  /**
+   * This deployment's id, new on every deploy. Versions /static/main.css so
+   * it can be cached for a year. See worker/lib/asset-version.ts.
+   */
+  CF_VERSION_METADATA: WorkerVersionMetadata;
 };
 
 export type Variables = {

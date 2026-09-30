@@ -246,11 +246,12 @@ failure splits a site's ranking and is invisible until it has happened.
 Give every page exactly one `<h1>`, and write the description for a human
 reading a search result rather than for a keyword.
 
-**Read `seo.md` before shipping a public site.** It covers the per-page
-checklist, titles and descriptions, the traps that fail silently (HTTP served
-alongside HTTPS, trailing-slash 404s, an empty 404 body, and a Vite `define`
-that never reaches production), and tested recipes for redirects, a 404 page,
-a share image, structured data, caching and lazy-loading.
+**Read `seo.md` before shipping a public site.** The template also 301s HTTP to
+HTTPS and strips trailing slashes, serves a real 404 page, emits JSON-LD
+(`jsonLd` on `c.render`) and a default share image (`APP_OG_IMAGE`), caches
+the stylesheet for a year, and lazy-loads staff-only components. `seo.md`
+covers how to use and extend each of these, the per-page checklist, and the
+traps that fail silently.
 
 ## Formatting
 
@@ -277,4 +278,7 @@ Two Vite passes from one config:
 
 In dev, the stylesheet and client entry are loaded from source; in production
 from `/static/`. `Layout.tsx` switches on `import.meta.env.PROD` — which is why
-a new client file must be reachable from `main.ts` to be bundled at all.
+a new client file must be reachable from `main.ts` to be bundled at all. Reachable
+means a top-level import, or an entry in its `ISLANDS` map for components only
+a few pages render; those become hashed chunks under `/static/chunks/`, loaded
+when their tag appears.

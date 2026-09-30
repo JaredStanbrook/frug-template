@@ -1,6 +1,7 @@
 import { jsxRenderer } from "hono/jsx-renderer";
 import { Layout } from "../views/Layout";
 import { resolveMeta, type PageMeta } from "../lib/seo";
+import { assetVersion } from "../lib/asset-version";
 
 declare module "hono" {
   interface ContextRenderer {
@@ -27,7 +28,13 @@ export const globalRenderer = jsxRenderer(
     const meta = resolveMeta(pageMeta as PageMeta, app, new URL(c.req.url));
 
     return (
-      <Layout meta={meta} app={app} user={user} currentPath={c.req.path}>
+      <Layout
+        meta={meta}
+        app={app}
+        user={user}
+        currentPath={c.req.path}
+        assetVersion={assetVersion(c)}
+      >
         {children}
       </Layout>
     );
