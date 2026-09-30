@@ -1,6 +1,6 @@
 ---
 name: frugal
-description: Build, configure and style apps on the Frugal Cloudflare Workers template (Hono + server-rendered JSX + HTMX + D1/Drizzle, Tailwind theme tokens). Use this skill for BOTH jobs it covers. First, turning a fresh copy of the template into a real site — trigger on "I want to build X with this", "set up this repo", "new site from this template", a pasted app brief, or any mention of wiring D1, KV or R2. Second, all ongoing work — adding a page, route, form, table, migration, nav link, auth or permission rule, and every visual or CSS change however small ("restyle this", "change the colours", "make it look better", "add a dashboard", dark mode). It covers the exact template-to-app procedure, how to wire each binding, the frontend/backend split, the registration steps a feature needs in order to be reachable, and the theme-token rules that keep light and dark working — all easy to miss and tedious to debug afterwards.
+description: Build, configure and style apps on the Frugal Cloudflare Workers template (Hono + server-rendered JSX + HTMX + D1/Drizzle, Tailwind theme tokens). Use this skill for BOTH jobs it covers. First, turning a fresh copy of the template into a real site — trigger on "I want to build X with this", "set up this repo", "new site from this template", a pasted app brief, or any mention of wiring D1, KV or R2. Second, all ongoing work — adding a page, route, form, table, migration, nav link, auth or permission rule, and every visual or CSS change however small ("restyle this", "change the colours", "make it look better", "add a dashboard", dark mode). Also SEO: titles, meta descriptions, sitemap, redirects, share images, schema, page speed, audits. It covers the exact template-to-app procedure, how to wire each binding, the frontend/backend split, the registration steps a feature needs in order to be reachable, and the theme-token rules that keep light and dark working — all easy to miss and tedious to debug afterwards.
 ---
 
 # Building on the Frugal template
@@ -238,6 +238,9 @@ A feature that renders but is invisible is almost always a missed line here:
       `Resource` union, or `authorize()` will not typecheck
 - [ ] `worker/routes/dev.tsx` — add the table so it shows in the inspector
 - [ ] `tests/ui-pages.test.ts` — add the new paths
+- [ ] Public page? Set `title` and `description` in `c.render`, and add it to
+      `STATIC_ROUTES` in `worker/routes/seo.ts`. Behind a guard? Leave it out of
+      the sitemap. See `references/seo.md`
 - [ ] Client-side element? Import it in `worker/components/main.ts` or it
       never registers
 
@@ -317,6 +320,37 @@ navigation. Available in `c.var`: `db`, `auth`, `app` (branding/locale),
 
 More in `references/backend.md` and the repo's `endpoints.md`.
 
+## Search and sharing
+
+Server rendering already does the hard part. `worker/lib/seo.ts` gives every
+page a canonical built from `ORIGIN`, Open Graph tags, `noindex` on sign-in,
+admin and query-string URLs, and an environment-aware `robots.txt`, and
+`worker/routes/seo.ts` builds the sitemap. What a route owes is a real
+`title` and `description`, one `<h1>`, and a sitemap entry if it's public.
+
+What the template does **not** do, and a real site almost always needs, is in
+`references/seo.md` with tested code: an HTTP → HTTPS and trailing-slash 301, a
+404 page with a body, a default share image, honest structured data, long-lived
+caching, and keeping staff-only JavaScript off public pages.
+
+Traps that pass every test:
+
+- **Cloudflare answers `http://` with a 200** unless "Always Use HTTPS" is on,
+  so every page exists twice.
+- **`wrangler dev` rewrites the host to production over plain HTTP**, so an
+  HTTPS redirect that trusts `c.req.url` loops a local preview. Read the scheme
+  from `CF-Visitor`.
+- **A Vite `define` never reaches production:** `wrangler deploy` bundles
+  `worker/index.ts` itself. Take per-deploy values from the runtime, such as the
+  `version_metadata` binding.
+- **`?v=` on `client.js` runs the bundle twice** once anything is lazy-loaded,
+  because the chunks import it by its bare URL. Version the stylesheet, not the
+  entry script.
+- **A UI-only parameter (`?topic=`) gets `noindex` plus a canonical** by
+  default. That's a conflicting signal; pass `noindex: false` there.
+- **Structured data must match the visible page.** No rating, review or FAQ
+  that isn't on it.
+
 ## Conventions worth keeping
 
 - **Money is integer cents.** Convert at the edges with `dollarsToCents` and
@@ -394,3 +428,7 @@ rather than a rollback. `docs/deploy.md` covers setup, failures and rollback.
   response patterns, testing.
 - `references/frontend.md` — server views vs client islands, HTMX attributes,
   when a Lit component is justified and how to write one.
+- `references/seo.md` — search and sharing: the per-page checklist, titles and
+  descriptions, canonicals and the sitemap, silent traps, recipes (redirects,
+  404 page, share image, structured data, caching, lazy islands), how to audit a
+  site, and the owner actions code can't do.

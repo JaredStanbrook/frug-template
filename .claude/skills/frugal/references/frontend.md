@@ -246,6 +246,12 @@ failure splits a site's ranking and is invisible until it has happened.
 Give every page exactly one `<h1>`, and write the description for a human
 reading a search result rather than for a keyword.
 
+**Read `seo.md` before shipping a public site.** It covers the per-page
+checklist, titles and descriptions, the traps that fail silently (HTTP served
+alongside HTTPS, trailing-slash 404s, an empty 404 body, and a Vite `define`
+that never reaches production), and tested recipes for redirects, a 404 page,
+a share image, structured data, caching and lazy-loading.
+
 ## Formatting
 
 `worker/views/lib/utils.ts`:
