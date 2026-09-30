@@ -5,7 +5,7 @@
  * All auth behavior is driven by Cloudflare Workers environment bindings
  */
 
-import { DEFAULT_PBKDF2_ITERATIONS } from "../lib/crypto";
+import { DEFAULT_PBKDF2_ITERATIONS, MAX_PBKDF2_ITERATIONS } from "../lib/crypto";
 
 export type AuthMethod = "passkey" | "password" | "pin" | "totp" | "email" | "sms";
 
@@ -140,7 +140,7 @@ export function parseAuthConfig(env: any): AuthConfig {
       // app before an empty one can be used.
       jwtSecret: env.JWT_SECRET ?? "",
       jwtExpiry: parseInt(env.JWT_EXPIRY) || 7 * 24 * 60 * 60,
-      hashIterations: parseInt(env.PASSWORD_HASH_ITERATIONS) || DEFAULT_PBKDF2_ITERATIONS,
+      hashIterations: parseHashIterations(env.PASSWORD_HASH_ITERATIONS),
     },
     roles: {
       available: rolesAvailable,
@@ -284,4 +284,22 @@ export function validateAuthConfig(env: any): { valid: boolean; errors: string[]
     valid: errors.length === 0,
     errors,
   };
+}
+
+/**
+ * PASSWORD_HASH_ITERATIONS, held to what the Workers runtime can run. A value
+ * over the limit is clamped with a warning rather than passed through: passed
+ * through, every sign-up and sign-in fails with a PBKDF2 error.
+ */
+export function parseHashIterations(value: string | undefined): number {
+  const parsed = parseInt(value ?? "");
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_PBKDF2_ITERATIONS;
+  if (parsed > MAX_PBKDF2_ITERATIONS) {
+    console.warn(
+      `PASSWORD_HASH_ITERATIONS=${parsed} is above the Workers limit of ` +
+        `${MAX_PBKDF2_ITERATIONS}; using ${MAX_PBKDF2_ITERATIONS}.`,
+    );
+    return MAX_PBKDF2_ITERATIONS;
+  }
+  return parsed;
 }

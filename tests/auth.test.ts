@@ -882,16 +882,31 @@ describe("password policy", () => {
 });
 
 describe("password hashing", () => {
-  it("upgrades an old hash on the next successful sign-in", async () => {
+  it("still signs in with a hash in the pre-versioning format", async () => {
     const user = await seedUser();
 
-    // A hash in the pre-versioning format, which was always 100,000 rounds.
+    // `salt.hash`, which was always 100,000 rounds.
     const legacy = await legacyHash("correct horse battery");
     await db.update(users).set({ passwordHash: legacy }).where(eq(users.id, user.id));
-    expect((await readUser(user.id)).passwordHash).toBe(legacy);
+
+    const { message } = await inContext((auth) =>
+      auth.loginWithPassword("member@example.com", "correct horse battery"),
+    );
+    expect(message, "the old hash must still verify").toBeUndefined();
+  });
+
+  it("upgrades a cheaper hash on the next successful sign-in", async () => {
+    const user = await seedUser();
+
+    // Made at a lower cost than the site now uses. The numbers stay at or
+    // under 100,000: Workers' WebCrypto refuses PBKDF2 above that, so a test
+    // upgrading past it would pass on Node and describe something production
+    // cannot do.
+    const cheap = await hashPassword("correct horse battery", 20_000);
+    await db.update(users).set({ passwordHash: cheap }).where(eq(users.id, user.id));
 
     const config = createAuthConfig();
-    config.security.hashIterations = 150_000;
+    config.security.hashIterations = 100_000;
 
     const { message } = await inContext(
       (auth) => auth.loginWithPassword("member@example.com", "correct horse battery"),
@@ -901,8 +916,8 @@ describe("password hashing", () => {
 
     // Same password, re-stored at the current cost — no reset email needed.
     const after = (await readUser(user.id)).passwordHash;
-    expect(after).not.toBe(legacy);
-    expect(after).toMatch(/^pbkdf2-sha256\$150000\$/);
+    expect(after).not.toBe(cheap);
+    expect(after).toMatch(/^pbkdf2-sha256\$100000\$/);
 
     // And it still works afterwards.
     const again = await inContext(
