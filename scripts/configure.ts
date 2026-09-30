@@ -25,8 +25,8 @@
  * the file keeps its comments and formatting. Re-running is safe: values that
  * are already set simply do not match any placeholder.
  *
- * The template repo itself runs as a live demo, so its D1 and KV entries hold
- * the demo's real ids rather than zeros. Those count as placeholders too:
+ * The template repo itself runs as a live demo, so its D1 and KV entries and
+ * its domain hold the demo's real values rather than placeholders. Those count as placeholders too:
  * missing them would leave a new site silently sharing the demo's database.
  */
 
@@ -39,6 +39,7 @@ const DEMO = {
   d1Name: "frugal-template-db",
   d1Id: "0d98fddd-9199-4c3f-81c1-d5180446c0b2",
   kvId: "70192fe342234452b5bf9e741f89d368",
+  domain: "frugal.stanbrook.me",
 };
 
 /** Placeholder text and demo values: anything a configured site must not keep. */
@@ -243,12 +244,14 @@ const run = () => {
   // Routes: a custom domain, or drop the block so the worker publishes on
   // workers.dev. RP_ID/ORIGIN must follow the same decision or passkeys break.
   if (domain) {
-    s = s.replaceAll('"pattern": "change-me.example.com"', `"pattern": ${JSON.stringify(domain)}`);
-    s = s.replaceAll('"RP_ID": "change-me.example.com"', `"RP_ID": ${JSON.stringify(domain)}`);
-    s = s.replaceAll(
-      '"ORIGIN": "https://change-me.example.com"',
-      `"ORIGIN": ${JSON.stringify(`https://${domain}`)}`,
-    );
+    for (const placeholder of ["change-me.example.com", DEMO.domain]) {
+      s = s.replaceAll(`"pattern": "${placeholder}"`, `"pattern": ${JSON.stringify(domain)}`);
+      s = s.replaceAll(`"RP_ID": "${placeholder}"`, `"RP_ID": ${JSON.stringify(domain)}`);
+      s = s.replaceAll(
+        `"ORIGIN": "https://${placeholder}"`,
+        `"ORIGIN": ${JSON.stringify(`https://${domain}`)}`,
+      );
+    }
   } else {
     const stripped = removeTopLevelBlock(s, "routes");
     if (stripped === null) {

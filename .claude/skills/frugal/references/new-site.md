@@ -20,7 +20,7 @@ Follow it in order; each step depends on the one before.
 Check before anything else:
 
 ```bash
-grep -in "change.me\|0000000\|frug-app\|frugal-template-db\|0d98fddd\|70192fe3" wrangler.jsonc | grep -v "^\s*[0-9]*:\s*//"
+grep -in "change.me\|0000000\|frug-app\|frugal-template-db\|0d98fddd\|70192fe3\|frugal.stanbrook" wrangler.jsonc | grep -v "^\s*[0-9]*:\s*//"
 ```
 
 Any hit outside a comment means the repo has never been configured, and Step 1
