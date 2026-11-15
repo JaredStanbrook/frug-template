@@ -21,15 +21,17 @@ const STATE: Record<AccessLinkState, { class: string; label: string }> = {
 const MODE_NOTE: Record<GateMode, { class: string; label: string }> = {
   off: {
     class: "bg-warning text-warning-foreground",
-    label: 'Gate off: the site is open to everyone. Set ACCESS_GATE to "session" or "link".',
+    label: 'Gate off: the site is open to everyone. Set ACCESS_GATE to "on".',
   },
   session: {
     class: "bg-success text-success-foreground",
-    label: "Gate on, single-use links: each link opens the site in one browser only.",
+    label:
+      "Gate on, links locked: each link works only in the first browser to open it (ACCESS_LINK_LOCK).",
   },
   link: {
     class: "bg-success text-success-foreground",
-    label: "Gate on, reusable links: anyone holding a link gets in until it expires.",
+    label:
+      "Gate on, links not locked: anyone holding a link gets in, in any browser, until it expires.",
   },
 };
 

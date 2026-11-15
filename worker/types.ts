@@ -39,9 +39,9 @@ export type Vars = {
   /** "true" closes sign-up for good once the owner's account exists. */
   SINGLE_ACCOUNT: string;
   /**
-   * The access gate: "off" (or unset) leaves the site open; "session" or
-   * "link" locks it to visitors holding an invitation link from
-   * /admin/access. See worker/services/access-gate.service.ts.
+   * The access gate: "on" locks the gated paths to visitors holding an
+   * invitation link from /admin/access; "off" (or unset) leaves the site
+   * open. See worker/services/access-gate.service.ts.
    */
   ACCESS_GATE?: string;
   /**
@@ -49,6 +49,11 @@ export type Vars = {
    * Unset or empty: the whole site.
    */
   ACCESS_GATE_PATHS?: string;
+  /**
+   * "true" locks each access link to the first browser that opens it.
+   * "false" or unset: anyone holding the link gets in, anywhere.
+   */
+  ACCESS_LINK_LOCK?: string;
 };
 
 /**

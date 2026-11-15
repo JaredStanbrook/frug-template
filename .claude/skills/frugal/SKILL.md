@@ -453,9 +453,10 @@ rather than a rollback. `docs/deploy.md` covers setup, failures and rollback.
 
 ## Access gate
 
-`ACCESS_GATE` locks a site to invited visitors: `"off"`, `"session"` (one
-browser per link, single-use) or `"link"` (the link works anywhere until it
-expires). Links are managed at `/admin/access`. A route a locked-out visitor
+`ACCESS_GATE` (`"on"` / `"off"`) locks a site to invited visitors.
+`ACCESS_LINK_LOCK`, per site, decides what a link is: `"false"` (default) lets
+whoever holds it in, in any browser, until it expires; `"true"` locks it to
+the first browser that opens it, so a forwarded copy is refused. Links are managed at `/admin/access`. A route a locked-out visitor
 must reach goes in `OPEN_PATHS` / `OPEN_PREFIXES` in
 `worker/middleware/access-gate.middleware.ts`; everything else is gated
 automatically. `ACCESS_GATE_PATHS` narrows it to some sections

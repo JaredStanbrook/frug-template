@@ -20,7 +20,7 @@ const OPEN_PREFIXES = ["/api/", "/static/", "/fonts/", "/web/auth/", "/a/"];
 const OPEN_PATHS = ["/gone", "/login", "/register", "/favicon.svg"];
 
 /**
- * Lock the site to invited visitors while ACCESS_GATE is "session" or "link".
+ * Lock the site to invited visitors while ACCESS_GATE is on.
  *
  * Mounted once in app.tsx ahead of the routes. It guards the paths in
  * ACCESS_GATE_PATHS (the whole site when unset), less the open ones listed

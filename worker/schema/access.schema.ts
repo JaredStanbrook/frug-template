@@ -1,8 +1,7 @@
 // worker/schema/access.schema.ts
 //
 // Invitation links for a site that is not public yet. While ACCESS_GATE is
-// "session" or "link", a visitor sees the site only after opening one of
-// these. See worker/services/access-gate.service.ts for the two modes.
+// on, a visitor sees the gated pages only after opening one of these. See worker/services/access-gate.service.ts for the two modes.
 
 import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { createSelectSchema } from "drizzle-zod";

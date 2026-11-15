@@ -10,6 +10,26 @@ Sites built from the template read these sections when they upgrade, so write
 each one for a site owner: what changed, and anything they must do by hand.
 See `docs/template-versions.md`.
 
+## [0.4.0] - 2026-11-15
+
+### Link locking is its own setting, off by default
+
+Whether an access link locks to the first browser that opens it is now a
+per-site setting of its own, rather than a mode of `ACCESS_GATE`.
+
+- `ACCESS_GATE`: `"on"` or `"off"` (default).
+- `ACCESS_LINK_LOCK`: `"false"` (default) means whoever has the link can open
+  it, in any browser on any computer, until it expires or is revoked. `"true"`
+  means the first browser to open it is the only one it works in; a forwarded
+  copy is refused.
+- The admin page says which way the site is set.
+
+Upgrading: a site with `"ACCESS_GATE": "session"` or `"link"` behaves exactly
+as before; those values still work and override `ACCESS_LINK_LOCK`. A site
+with `"ACCESS_GATE": "true"` **changes**: it used to mean locked links and now
+means unlocked. Set `"ACCESS_LINK_LOCK": "true"` to keep them locked. To
+adopt the new names, use `"ACCESS_GATE": "on"` plus `ACCESS_LINK_LOCK`.
+
 ## [0.3.0] - 2026-11-15
 
 ### Faster sign-in check
