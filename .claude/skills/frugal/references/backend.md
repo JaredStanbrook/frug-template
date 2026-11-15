@@ -272,7 +272,21 @@ sequential queries × round trip".
 - **Never `await` independent queries in sequence.** Two `await`s in a row are
   two round trips; `Promise.all` makes them one wall-clock hop. This was the
   single biggest cost in this codebase — the auth path ran four sequential
-  queries, one of them a duplicate, on *every* authenticated request.
+  queries, one of them a duplicate, on *every* authenticated request. It is
+  one batched request now.
+- **`db.batch` sends several statements as one request — but never batch a
+  join.** The session check batches the session, user, roles and permissions
+  reads (`Auth.validateSession`): the user id is in the verified token, so
+  none waits on another, and four hops become one. But drizzle reads D1 batch
+  results by *column name*, so a select joining tables that share one (`id`,
+  `created_at`, `user_id`) comes back with values in the wrong fields, and
+  nothing errors. Batch single-table selects; run joins with `Promise.all`.
+  The tests will not catch it: `createRealDb` batches through a different
+  driver that maps by position.
+- **Never bind a list of ids.** `inArray(col, ids)` binds one parameter per
+  id, and D1 refuses a statement with more than 100. Fine for a page of 20;
+  wrong for "all of this user's rows", which grows past it. Select by the
+  same condition as a subquery instead, or page.
 - **Fetch once and pass it down.** `RoleService.getRolesAndPermissions()`
   returns both halves from one query pair because both derive from the same
   tables; asking for them separately read `user_roles` twice.

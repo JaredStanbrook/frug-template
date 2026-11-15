@@ -36,17 +36,23 @@ const makeApp = (user: any = null) => {
   return wrapper;
 };
 
-const fetchAs = (path: string, { gate = "session", cookie = "", user = null as any } = {}) =>
+const fetchAs = (
+  path: string,
+  { gate = "session", cookie = "", user = null as any, paths = "" } = {},
+) =>
   makeApp(user).fetch(new Request(`http://localhost${path}`, { headers: { cookie } }), {
     ASSETS: {},
     ACCESS_GATE: gate,
+    ACCESS_GATE_PATHS: paths,
+    ENVIRONMENT: "production",
   } as any);
 
 /** Open a link the way a browser does: POST from the Continue button. */
-const openAsBrowser = (token: string, gate = "session") =>
+const openAsBrowser = (token: string, gate = "session", paths = "") =>
   makeApp().fetch(new Request(`http://localhost/a/${token}`, { method: "POST" }), {
     ASSETS: {},
     ACCESS_GATE: gate,
+    ACCESS_GATE_PATHS: paths,
   } as any);
 
 const cookieFrom = (res: Response) => res.headers.get("set-cookie")!.split(";")[0];
@@ -197,5 +203,34 @@ describe("the gate", () => {
   it('is open when ACCESS_GATE is "off"', async () => {
     expect((await fetchAs("/", { gate: "off" })).status).toBe(200);
     expect((await fetchAs("/a/anything", { gate: "off" })).headers.get("location")).toBe("/");
+  });
+});
+
+describe("ACCESS_GATE_PATHS", () => {
+  const paths = "/notes";
+
+  it("guards only the listed section and leaves the rest public", async () => {
+    expect((await fetchAs("/", { paths })).status).toBe(200);
+    expect((await fetchAs("/notes", { paths })).headers.get("location")).toBe("/gone");
+    expect((await fetchAs("/notes/new", { paths })).headers.get("location")).toBe("/gone");
+    // A prefix match is on whole segments: /notesy is not /notes.
+    expect((await fetchAs("/notesy", { paths })).headers.get("location")).not.toBe("/gone");
+  });
+
+  it("keeps the public pages dressed, and crawlable", async () => {
+    const home = await (await fetchAs("/", { paths })).text();
+    expect(home).toContain("Testing");
+    const robots = await (await fetchAs("/robots.txt", { paths })).text();
+    expect(robots).toContain("Sitemap:");
+    expect((await fetchAs("/sitemap.xml", { paths })).status).toBe(200);
+  });
+
+  it("lands an opened link on the guarded section, and lets it in", async () => {
+    await addLink("good");
+    const open = await openAsBrowser("good", "session", paths);
+    expect(open.headers.get("location")).toBe("/notes");
+    const cookie = cookieFrom(open);
+    // Past the gate; the notes route itself then wants a signed-in user.
+    expect((await fetchAs("/notes", { paths, cookie })).headers.get("location")).toBe("/login");
   });
 });

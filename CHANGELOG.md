@@ -10,6 +10,41 @@ Sites built from the template read these sections when they upgrade, so write
 each one for a site owner: what changed, and anything they must do by hand.
 See `docs/template-versions.md`.
 
+## [0.3.0] - 2026-11-15
+
+### Faster sign-in check
+
+Every signed-in request used to wait on four D1 round trips before the page
+did any work: the session, then the user, then roles and permissions. The
+user id is in the verified token, so all four now go in one `db.batch`, and
+the last-seen/renewal write runs after the response via `waitUntil`. With
+D1 a region away, that is three fewer network hops on every signed-in page.
+
+- `RoleService` gains `activeRolesQuery`, `directPermissionsQuery` and
+  `resolve`, so a caller can batch the role reads with its own.
+  `getRolesAndPermissions` is unchanged.
+
+### Access gate on some paths only
+
+- `ACCESS_GATE_PATHS` (comma separated, e.g. `"/reports,/beta"`) limits the
+  gate to those sections; the rest of the site stays public, keeps its nav
+  and footer, and stays in robots.txt and the sitemap. Empty means the whole
+  site, as before. An opened link now lands on the first guarded path.
+- The middleware leaves the link that let a visitor in on
+  `c.var.accessLink`, so a route can tell whose invitation it was.
+
+### Documented
+
+- Never batch a join on D1: drizzle reads batch rows by column name, so
+  tables that share a name (`id`, `created_at`) come back misaligned with no
+  error. Never bind an unbounded id list: D1 refuses more than 100
+  parameters. Both in the skill's backend reference and its traps list.
+- `tests/utils/fakeDb.ts`'s `batch` returns each query's rows instead of an
+  empty list.
+
+Upgrading: add `"ACCESS_GATE_PATHS": ""` to `wrangler.jsonc` if you use the
+gate. No migration.
+
 ## [0.2.1] - 2026-11-15
 
 ### Fixed

@@ -2,7 +2,12 @@ import { Hono } from "hono";
 import { setCookie } from "hono/cookie";
 
 import type { AppEnv } from "@server/types";
-import { ACCESS_COOKIE, gateMode, openLink } from "@server/services/access-gate.service";
+import {
+  ACCESS_COOKIE,
+  gateMode,
+  gatedPrefixes,
+  openLink,
+} from "@server/services/access-gate.service";
 import { EnterPage, GonePage } from "@views/pages/Gone";
 
 /**
@@ -40,7 +45,8 @@ accessRoute.post("/a/:token", async (c) => {
     path: "/",
     maxAge: remaining,
   });
-  return c.redirect("/");
+  // Into whatever the link is for: the site, or the first guarded section.
+  return c.redirect(gatedPrefixes(c.env)[0]);
 });
 
 accessRoute.get("/gone", (c) =>

@@ -139,6 +139,12 @@ per-owner view from child rows drops every owner that has none, so a freshly
 added one reads as "nothing here yet". Seed from the canonical table and left
 join the children.
 
+**A batched join returns the wrong values.** `db.batch([...])` on D1 is read
+back by column name, so a joined select whose tables share a column name
+(`id`, `created_at`) lands values in the wrong fields, silently. Batch only
+single-table selects; send joins with `Promise.all`. `createRealDb` batches
+through another driver, so no test here catches it. See `references/backend.md`.
+
 **Content sits under the fixed header** unless `<main>` carries the offset
 (`pt-14`). A page that wants no nav sets `bare` on its meta rather than
 fighting the padding.
@@ -452,7 +458,10 @@ browser per link, single-use) or `"link"` (the link works anywhere until it
 expires). Links are managed at `/admin/access`. A route a locked-out visitor
 must reach goes in `OPEN_PATHS` / `OPEN_PREFIXES` in
 `worker/middleware/access-gate.middleware.ts`; everything else is gated
-automatically. Turning it on for a site with a privacy notice means adding the
+automatically. `ACCESS_GATE_PATHS` narrows it to some sections
+(`"/reports,/beta"`), leaving the rest public; an opened link lands on the
+first. A gated route can read `c.var.accessLink` to see whose invitation let
+the visitor in. Turning it on for a site with a privacy notice means adding the
 `site_access` cookie to that notice.
 
 ## Reference files

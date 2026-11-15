@@ -44,6 +44,11 @@ export type Vars = {
    * /admin/access. See worker/services/access-gate.service.ts.
    */
   ACCESS_GATE?: string;
+  /**
+   * Comma-separated path prefixes the gate guards, e.g. "/reports,/beta".
+   * Unset or empty: the whole site.
+   */
+  ACCESS_GATE_PATHS?: string;
 };
 
 /**
@@ -81,6 +86,8 @@ export type Variables = {
   auth: Auth;
   /** Set by the access gate once a visitor's invitation link checks out. */
   accessGranted?: boolean;
+  /** The invitation behind `accessGranted`, e.g. to read who created it. */
+  accessLink?: import("./schema/access.schema").SelectAccessLink;
 };
 
 export type AppEnv = {

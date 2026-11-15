@@ -81,31 +81,48 @@ export class RoleService {
     roles: string[];
     permissions: Set<string>;
   }> {
-    const now = new Date();
-
     const [activeRoles, directPerms] = await Promise.all([
-      this.db
-        .select({ role: userRoles.role })
-        .from(userRoles)
-        .where(
-          and(
-            eq(userRoles.userId, userId),
-            or(isNull(userRoles.expiresAt), gt(userRoles.expiresAt, now)),
-          ),
-        )
-        .all(),
-      this.db
-        .select({ permission: userPermissions.permission })
-        .from(userPermissions)
-        .where(
-          and(
-            eq(userPermissions.userId, userId),
-            or(isNull(userPermissions.expiresAt), gt(userPermissions.expiresAt, now)),
-          ),
-        )
-        .all(),
+      this.activeRolesQuery(userId).all(),
+      this.directPermissionsQuery(userId).all(),
     ]);
+    return this.resolve(activeRoles, directPerms);
+  }
 
+  /**
+   * The two reads behind `getRolesAndPermissions`, unexecuted, so a caller can
+   * put them in a `db.batch` with its own queries and pay one round trip for
+   * all of them. The session check on every signed-in request does exactly
+   * that. Feed the rows to `resolve`.
+   */
+  activeRolesQuery(userId: string) {
+    return this.db
+      .select({ role: userRoles.role })
+      .from(userRoles)
+      .where(
+        and(
+          eq(userRoles.userId, userId),
+          or(isNull(userRoles.expiresAt), gt(userRoles.expiresAt, new Date())),
+        ),
+      );
+  }
+
+  directPermissionsQuery(userId: string) {
+    return this.db
+      .select({ permission: userPermissions.permission })
+      .from(userPermissions)
+      .where(
+        and(
+          eq(userPermissions.userId, userId),
+          or(isNull(userPermissions.expiresAt), gt(userPermissions.expiresAt, new Date())),
+        ),
+      );
+  }
+
+  /** Roles and effective permissions from the rows of the two queries above. */
+  resolve(
+    activeRoles: { role: string }[],
+    directPerms: { permission: string }[],
+  ): { roles: string[]; permissions: Set<string> } {
     const roles = activeRoles.map((r: any) => r.role as string);
     const permissions = new Set<string>();
 
