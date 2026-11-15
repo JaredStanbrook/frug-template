@@ -72,7 +72,7 @@ jobs:
           if [ -n "$BASE_REF" ]; then
             git fetch --quiet --depth=1 origin "$BASE_REF"
             # Empty when the base predates frugal.json: the first versioned release.
-            base=$(git show "origin/$BASE_REF:frugal.json" 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0) || '{}').version" || true)
+            base=$(git show "origin/$BASE_REF:frugal.json" 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8') || '{}').version")
             if [ "$base" = "$version" ]; then
               echo "::error::frugal.json is still $version, as on $BASE_REF. Bump it: every template change is a release."
               exit 1
