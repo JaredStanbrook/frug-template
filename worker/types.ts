@@ -38,6 +38,12 @@ export type Vars = {
   BOOTSTRAP_ADMIN_EMAIL: string;
   /** "true" closes sign-up for good once the owner's account exists. */
   SINGLE_ACCOUNT: string;
+  /**
+   * The access gate: "off" (or unset) leaves the site open; "session" or
+   * "link" locks it to visitors holding an invitation link from
+   * /admin/access. See worker/services/access-gate.service.ts.
+   */
+  ACCESS_GATE?: string;
 };
 
 /**
@@ -73,6 +79,8 @@ export type Variables = {
   authConfig: AuthConfig;
   isMethodEnabled: (method: string) => boolean;
   auth: Auth;
+  /** Set by the access gate once a visitor's invitation link checks out. */
+  accessGranted?: boolean;
 };
 
 export type AppEnv = {

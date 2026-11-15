@@ -57,6 +57,11 @@ example.
 Three things in the Cloudflare dashboard; Claude does the rest.
 **[docs/deploy.md](docs/deploy.md)** is the step-by-step version.
 
+The new site keeps `frugal.json`, which records the template release it was
+made from. Later, `npm run template` shows what the template has changed since,
+and `npm run template -- upgrade` pulls it in. See
+**[docs/template-versions.md](docs/template-versions.md)**.
+
 ### 1. Create the resources (dashboard)
 
 **Storage & Databases → D1 → Create**, and **→ KV → Create Instance**. Copy the

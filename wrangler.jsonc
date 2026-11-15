@@ -26,6 +26,14 @@
     // by the worker's own notFound, not by an SPA shell. "none" keeps the
     // asset layer from swallowing 404s that should reach your router.
     "not_found_handling": "none",
+    // With ACCESS_GATE on, files in public/ (images, media, og.png) are still
+    // served straight from Cloudflare without running the worker, so anyone
+    // with the URL can fetch them. To gate them too, uncomment this: every
+    // request then runs the worker first, except the bundle, fonts and
+    // favicon the locked page needs. It costs a worker request per file, so
+    // leave it off unless public/ holds something private. Keep it in step
+    // with OPEN_PREFIXES in worker/middleware/access-gate.middleware.ts.
+    // "run_worker_first": ["/*", "!/static/*", "!/fonts/*", "!/favicon.svg"],
   },
 
   "observability": {
@@ -116,6 +124,14 @@
   "vars": {
     "ENVIRONMENT": "production",
 
+    // --- ACCESS GATE ---
+    // Lock the site to invited visitors while it is not public yet. Admins
+    // make and revoke links at /admin/access; a signed-in admin sees all.
+    //   "off"      open to everyone.
+    //   "session"  each link works once and then belongs to one browser.
+    //   "link"     a link keeps working, in any browser, until it expires.
+    "ACCESS_GATE": "off",
+
     // --- BRANDING ---
     // CHANGE_ME — how the site names itself in the title, nav and footer.
     "APP_NAME": "Frug",
@@ -182,7 +198,7 @@
     // Roles that cannot be self-assigned at registration. Get your first
     // admin with BOOTSTRAP_ADMIN_EMAIL below — no terminal needed.
     "ROLES_RESTRICTED": "admin",
-    "PERMISSIONS_AVAILABLE": "notes.read,notes.create,notes.update,notes.delete,notes.update.any,notes.delete.any",
+    "PERMISSIONS_AVAILABLE": "notes.read,notes.create,notes.update,notes.delete,notes.update.any,notes.delete.any,access.read,access.create,access.update",
     "ROLES_INHERENT": "user:notes.read,notes.create,notes.update,notes.delete;admin:*",
 
     // --- PASSKEY / WEBAUTHN ---

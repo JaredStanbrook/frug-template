@@ -2,6 +2,7 @@ import { jsxRenderer } from "hono/jsx-renderer";
 import { Layout } from "../views/Layout";
 import { resolveMeta, type PageMeta } from "../lib/seo";
 import { assetVersion } from "../lib/asset-version";
+import { isGateEnabled } from "../services/access-gate.service";
 
 declare module "hono" {
   interface ContextRenderer {
@@ -26,6 +27,15 @@ export const globalRenderer = jsxRenderer(
     const app = c.var.app;
     const user = c.var.auth?.user || null;
     const meta = resolveMeta(pageMeta as PageMeta, app, new URL(c.req.url));
+    // A visitor the access gate has not let in (on /gone, /login, /register)
+    // gets no nav and no tagline or share image in the head: each would
+    // describe the site being kept private.
+    if (isGateEnabled(c.env) && !c.var.accessGranted && !user?.roles.includes("admin")) {
+      meta.bare = true;
+      meta.description = "This site is not open to the public yet.";
+      meta.image = undefined;
+      meta.jsonLd = [];
+    }
 
     return (
       <Layout

@@ -1,0 +1,42 @@
+name: Template release
+
+# Template repo only: once CI passes on main, tag frugal.json's version as
+# v<version> and publish its CHANGELOG section as a GitHub release. Sites built
+# from the template fetch these tags to upgrade (`npm run template`). A version
+# already tagged is left alone, so re-runs and docs-only pushes do nothing.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    if: >-
+      github.repository == 'JaredStanbrook/frug-template' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          version=$(node -p "require('./frugal.json').version")
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "v$version is already tagged."
+            exit 0
+          fi
+          # This version's section: from its heading to the next one.
+          awk -v v="## [$version]" 'index($0, v) == 1 {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md > notes.md
+          gh release create "v$version" --target "$SHA" --title "v$version" --notes-file notes.md

@@ -140,17 +140,23 @@ export const Layout: FC<LayoutProps> = (props) => {
 
         <app-toaster></app-toaster>
 
-        <footer class="mt-16">
-          <div class="retro-stripes h-[9px]" aria-hidden="true"></div>
-          <div
-            class="flex flex-col items-center justify-between gap-2 px-4 py-6 md:h-24 md:flex-row md:px-8 md:py-0"
-          >
-            <p class="font-display text-xs tracking-wide text-foreground">${props.app.name}</p>
-            <p class="text-center text-sm leading-loose text-muted-foreground md:text-right">
-              ${props.app.tagline || props.app.name}
-            </p>
-          </div>
-        </footer>
+        ${
+          props.meta.bare
+            ? ""
+            : html`<footer class="mt-16">
+                <div class="retro-stripes h-[9px]" aria-hidden="true"></div>
+                <div
+                  class="flex flex-col items-center justify-between gap-2 px-4 py-6 md:h-24 md:flex-row md:px-8 md:py-0"
+                >
+                  <p class="font-display text-xs tracking-wide text-foreground">
+                    ${props.app.name}
+                  </p>
+                  <p class="text-center text-sm leading-loose text-muted-foreground md:text-right">
+                    ${props.app.tagline || props.app.name}
+                  </p>
+                </div>
+              </footer>`
+        }
       </body>
     </html>
   `;

@@ -13,6 +13,7 @@ const menuConfig: Record<string, Array<{ to: string; name: string }>> = {
   user: [{ to: "/notes", name: "Notes" }],
   admin: [
     { to: "/notes", name: "Notes" },
+    { to: "/admin/access", name: "Access links" },
     { to: "/admin/logs", name: "System Logs" },
   ],
 };

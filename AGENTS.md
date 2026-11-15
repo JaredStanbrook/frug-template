@@ -8,6 +8,11 @@ that keep light and dark mode working. This file is the short version.
 This repository is a **template**. Code here is copied into new sites, so
 changes should stay generic — resist encoding one site's domain into it.
 
+**Every change is a release.** Bump `version` in `frugal.json` and add a
+`## [<version>] - <date>` section to `CHANGELOG.md`, written for the owner of
+a site that will upgrade to it. CI fails without both. See
+`docs/template-versions.md`.
+
 ## Project Structure & Module Organization
 
 - `worker/` is the application: Hono routes, SSR JSX views, HTMX fragments,
@@ -30,6 +35,8 @@ Path aliases: `@server/*` → `worker/*`, `@views/*` → `worker/views/*`,
 - `npm run build` — generate types, typecheck, build client and server bundles.
 - `npm run deploy` — migrate then deploy; this is the dashboard's Deploy command.
 - `npm run configure -- --help` — fill in `wrangler.jsonc` for a new site.
+- `npm run template` — template releases this repo has not applied;
+  `-- upgrade` applies them. See `docs/template-versions.md`.
 - `npm run typecheck` — `tsc -b`.
 - `npm run lint` — ESLint across the repo.
 - `npm run test` — Vitest.
