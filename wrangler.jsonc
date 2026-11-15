@@ -131,6 +131,10 @@
     //   "session"  each link works once and then belongs to one browser.
     //   "link"     a link keeps working, in any browser, until it expires.
     "ACCESS_GATE": "off",
+    // Which paths the gate guards, comma separated: "/reports,/beta" locks
+    // those sections and leaves the rest of the site public. Empty: all of it.
+    // An opened link lands on the first one.
+    "ACCESS_GATE_PATHS": "",
 
     // --- BRANDING ---
     // CHANGE_ME — how the site names itself in the title, nav and footer.

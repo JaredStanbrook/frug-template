@@ -19,6 +19,7 @@ ORIGIN="http://localhost:3000"
 
 # The access gate: "off", "session" or "link". See wrangler.jsonc.
 ACCESS_GATE="off"
+ACCESS_GATE_PATHS=""
 
 # Loosen registration while developing.
 ALLOWED_EMAILS=""

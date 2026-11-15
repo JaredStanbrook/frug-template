@@ -35,6 +35,34 @@ export const gateMode = (env: { ACCESS_GATE?: string }): GateMode => {
 
 export const isGateEnabled = (env: { ACCESS_GATE?: string }) => gateMode(env) !== "off";
 
+type GateEnv = { ACCESS_GATE?: string; ACCESS_GATE_PATHS?: string };
+
+/**
+ * The path prefixes the gate guards, from ACCESS_GATE_PATHS (comma
+ * separated). Unset or empty means ["/"]: the whole site. "/reports" guards
+ * /reports and everything under it, and nothing else.
+ */
+export const gatedPrefixes = (env: GateEnv): string[] => {
+  const list = (env.ACCESS_GATE_PATHS ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => (p.length > 1 ? p.replace(/\/+$/, "") : p));
+  return list.length ? list : ["/"];
+};
+
+/** Whether the gate is on and guards this path. */
+export const isGatedPath = (env: GateEnv, path: string) =>
+  isGateEnabled(env) &&
+  gatedPrefixes(env).some((p) => p === "/" || path === p || path.startsWith(`${p}/`));
+
+/**
+ * Whether the gate locks the whole site, rather than a few paths. Only then
+ * do robots.txt and the sitemap hide everything.
+ */
+export const gatesWholeSite = (env: GateEnv) =>
+  isGateEnabled(env) && gatedPrefixes(env).includes("/");
+
 export const linkState = (link: SelectAccessLink, now = new Date()): AccessLinkState => {
   if (link.revokedAt) return "revoked";
   if (!link.expiresAt) return "unused";

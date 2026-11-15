@@ -108,8 +108,9 @@ export const createFakeDb = (data: MockData) => ({
       },
     };
   },
-  batch() {
-    return Promise.resolve([]);
+  /** Each query resolves as it would on its own, as `db.batch` returns them. */
+  batch(queries: PromiseLike<unknown>[]) {
+    return Promise.all(queries);
   },
 });
 

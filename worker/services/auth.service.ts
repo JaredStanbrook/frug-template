@@ -243,7 +243,10 @@ export class Auth {
   private async toSafeUser(user: any): Promise<SafeUser> {
     // One call, one concurrent query pair — see RoleService.getRolesAndPermissions.
     const { roles, permissions } = await this.roleService.getRolesAndPermissions(user.id);
+    return this.safeUserFrom(user, roles, permissions);
+  }
 
+  private safeUserFrom(user: any, roles: string[], permissions: Set<string>): SafeUser {
     return {
       id: user.id,
       username: user.username,
@@ -322,22 +325,34 @@ export class Auth {
       //    as long as it had left to run.
       if (!sessionId) return { user: null };
 
-      const session = await this.db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+      // 3. Everything else this needs, in one round trip. The user id is in
+      //    the verified token, so the user, roles and permissions do not have
+      //    to wait for the session row: issued one after another these were
+      //    four D1 hops ahead of every signed-in page, and each hop is a trip
+      //    to wherever the database lives. Safe to batch because none of the
+      //    four joins: drizzle reads D1 batch rows by column name, so a join
+      //    with a repeated column name must not go in a batch.
+      const [[session], [user], activeRoles, directPerms] = await this.db.batch([
+        this.db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1),
+        this.db.select().from(users).where(eq(users.id, userId)).limit(1),
+        this.roleService.activeRolesQuery(userId),
+        this.roleService.directPermissionsQuery(userId),
+      ]);
 
       if (!session || session.userId !== userId) return { user: null };
       if (session.revokedAt) return { user: null };
       if (new Date(session.expiresAt) <= new Date()) return { user: null };
-
-      const [user] = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
       if (!user) return { user: null };
 
       // Deactivating an account has to end the sessions it already has, or it
       // only stops the next sign-in.
       if (!user.isActive) return { user: null };
 
-      await this.touchSession(session);
+      // Bookkeeping the response does not depend on: written after it is sent.
+      this.afterResponse(this.touchSession(session));
 
-      const safeUser = await this.toSafeUser(user);
+      const { roles, permissions } = this.roleService.resolve(activeRoles, directPerms);
+      const safeUser = this.safeUserFrom(user, roles, permissions);
       this.user = safeUser;
       this.session = { id: session.id };
 
@@ -349,6 +364,21 @@ export class Auth {
       const expired = e instanceof Error && /expired/i.test(e.name + e.message);
       if (!expired) console.error("Session validation failed", e);
       return { user: null };
+    }
+  }
+
+  /**
+   * Let a write finish after the response has gone, via `waitUntil`. Outside
+   * a Worker request (tests, scripts) there is no execution context, so it is
+   * awaited inline instead; either way a failure is logged, never thrown at a
+   * request that has already been answered.
+   */
+  private afterResponse(work: Promise<unknown>) {
+    const logged = work.catch((e) => console.error("Deferred write failed", e));
+    try {
+      this.c.executionCtx.waitUntil(logged);
+    } catch {
+      // No execution context: the promise still runs; nothing waits on it.
     }
   }
 
