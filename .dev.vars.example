@@ -17,8 +17,10 @@ JWT_SECRET="replace-with-a-long-random-string"
 RP_ID="localhost"
 ORIGIN="http://localhost:3000"
 
-# The access gate: "off", "session" or "link". See wrangler.jsonc.
+# The access gate: "on" or "off", and whether a link locks to the first
+# browser that opens it. See wrangler.jsonc.
 ACCESS_GATE="off"
+ACCESS_LINK_LOCK="false"
 ACCESS_GATE_PATHS=""
 
 # Loosen registration while developing.

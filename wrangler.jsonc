@@ -127,10 +127,12 @@
     // --- ACCESS GATE ---
     // Lock the site to invited visitors while it is not public yet. Admins
     // make and revoke links at /admin/access; a signed-in admin sees all.
-    //   "off"      open to everyone.
-    //   "session"  each link works once and then belongs to one browser.
-    //   "link"     a link keeps working, in any browser, until it expires.
+    // "on" or "off".
     "ACCESS_GATE": "off",
+    // "false": whoever has a link can open it, in any browser on any
+    // computer, until it expires. "true": the first browser to open a link is
+    // the only one it ever works in; a forwarded copy is refused.
+    "ACCESS_LINK_LOCK": "false",
     // Which paths the gate guards, comma separated: "/reports,/beta" locks
     // those sections and leaves the rest of the site public. Empty: all of it.
     // An opened link lands on the first one.

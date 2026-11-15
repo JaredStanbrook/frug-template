@@ -67,13 +67,20 @@ beforeEach(() => {
 });
 
 describe("gate mode", () => {
-  it('is off unless the var names a mode, and reads the old "true" as session', () => {
+  it("is off unless switched on, and unlocked unless ACCESS_LINK_LOCK says so", () => {
     expect(gateMode({})).toBe("off");
+    expect(gateMode({ ACCESS_GATE: "off" })).toBe("off");
     expect(gateMode({ ACCESS_GATE: "false" })).toBe("off");
     expect(gateMode({ ACCESS_GATE: "yes" })).toBe("off");
-    expect(gateMode({ ACCESS_GATE: "true" })).toBe("session");
+    // On, links are not locked unless the site asks for it.
+    expect(gateMode({ ACCESS_GATE: "on" })).toBe("link");
+    expect(gateMode({ ACCESS_GATE: "On", ACCESS_LINK_LOCK: "false" })).toBe("link");
+    expect(gateMode({ ACCESS_GATE: "on", ACCESS_LINK_LOCK: "true" })).toBe("session");
+    expect(gateMode({ ACCESS_GATE: "true", ACCESS_LINK_LOCK: "TRUE" })).toBe("session");
+    expect(gateMode({ ACCESS_GATE: "true" })).toBe("link");
+    // Older configs that named the mode directly still mean what they said.
     expect(gateMode({ ACCESS_GATE: "Session" })).toBe("session");
-    expect(gateMode({ ACCESS_GATE: "link" })).toBe("link");
+    expect(gateMode({ ACCESS_GATE: "link", ACCESS_LINK_LOCK: "true" })).toBe("link");
   });
 });
 
@@ -112,6 +119,17 @@ describe("session mode", () => {
 
     await db.update(accessLink).set({ expiresAt: "2000-01-01T00:00:00.000Z" });
     expect((await fetchAs("/", { cookie })).headers.get("location")).toBe("/gone");
+  });
+});
+
+describe('ACCESS_GATE="on" with no lock set', () => {
+  it("lets the same link in on a second browser", async () => {
+    await addLink("shared");
+    const one = await openAsBrowser("shared", "on");
+    const two = await openAsBrowser("shared", "on");
+    expect(one.headers.get("location")).toBe("/");
+    expect(two.headers.get("location")).toBe("/");
+    expect((await fetchAs("/", { gate: "on", cookie: cookieFrom(two) })).status).toBe(200);
   });
 });
 

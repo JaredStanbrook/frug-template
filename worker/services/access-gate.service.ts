@@ -10,32 +10,39 @@ type Db = AppEnv["Variables"]["db"];
 export const ACCESS_COOKIE = "site_access";
 
 /**
- * How invitation links behave, from the ACCESS_GATE var:
+ * Whether the gate is on, and how its links behave. Two vars, per site:
  *
- *   "off"      no gate. The default, so a missing var never locks anyone out.
- *   "session"  a link works once. Opening it mints a session token for that
- *              browser's cookie; the link is spent, so a forwarded copy is
- *              refused. Best when each link goes to one named person.
- *   "link"     the link is the credential. It keeps working, in any browser,
- *              until it expires or is revoked; the cookie holds the link token
- *              itself. Best for a link shared with a group or opened on
- *              several devices.
+ * ACCESS_GATE        "on" or "off" (default). Off, a missing var never
+ *                    locks anyone out.
+ * ACCESS_LINK_LOCK   "false" (default) or "true".
+ *   false → "link":    the link is the credential. Whoever holds it gets in,
+ *                      in any browser on any computer, until it expires or is
+ *                      revoked; the cookie holds the link token itself. Good
+ *                      for a link opened on several devices or shared.
+ *   true  → "session": the first browser to open the link is the only one it
+ *                      ever lets in. Opening it mints a session token for that
+ *                      browser's cookie and spends the link, so a forwarded
+ *                      copy is refused. Good when a link must reach exactly
+ *                      one person.
  *
  * Either way the clock starts on the first open, not when the link is made.
- * "true" is accepted as "session", the only mode the first version had.
+ * For older configs, ACCESS_GATE also accepts "true" (same as "on") and
+ * "session" or "link" directly, which override ACCESS_LINK_LOCK.
  */
 export type GateMode = "off" | "session" | "link";
 
-export const gateMode = (env: { ACCESS_GATE?: string }): GateMode => {
+type ModeEnv = { ACCESS_GATE?: string; ACCESS_LINK_LOCK?: string };
+
+export const gateMode = (env: ModeEnv): GateMode => {
   const value = env.ACCESS_GATE?.trim().toLowerCase();
-  if (value === "session" || value === "true") return "session";
-  if (value === "link") return "link";
-  return "off";
+  if (value === "session" || value === "link") return value;
+  if (value !== "on" && value !== "true") return "off";
+  return env.ACCESS_LINK_LOCK?.trim().toLowerCase() === "true" ? "session" : "link";
 };
 
-export const isGateEnabled = (env: { ACCESS_GATE?: string }) => gateMode(env) !== "off";
+export const isGateEnabled = (env: ModeEnv) => gateMode(env) !== "off";
 
-type GateEnv = { ACCESS_GATE?: string; ACCESS_GATE_PATHS?: string };
+type GateEnv = ModeEnv & { ACCESS_GATE_PATHS?: string };
 
 /**
  * The path prefixes the gate guards, from ACCESS_GATE_PATHS (comma
