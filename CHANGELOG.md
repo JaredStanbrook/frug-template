@@ -10,6 +10,24 @@ Sites built from the template read these sections when they upgrade, so write
 each one for a site owner: what changed, and anything they must do by hand.
 See `docs/template-versions.md`.
 
+## [0.2.1] - 2026-11-15
+
+### Fixed
+
+- CI's placeholder check failed on every push since the template began
+  running as a demo: it demanded the `change-me` D1 and KV ids that the demo's
+  own ids had replaced on purpose. It now accepts exactly the demo's ids and
+  still fails on any other real one. Because CI never passed, `v0.2.0` was
+  never tagged; `v0.2.1` is the first tagged versioned release.
+- `npm run template -- upgrade` now lists the template migrations in the
+  range. `npm run gen` writes only structure, so a hand-added data step (such
+  as the email-lowercasing backfill in `0002`) has to be copied into the site's own
+  migration.
+- The session-limit test opened sessions in the same millisecond and so
+  occasionally evicted the wrong one. Test-only; real sign-ins never collide.
+
+Nothing to do by hand.
+
 ## [0.2.0] - 2026-11-15
 
 ### Template versions

@@ -23,6 +23,8 @@
  *   - drizzle/: migration numbers are per repo, so a template migration would
  *     collide with the site's own. The schema files in worker/schema/ are
  *     patched instead, and `npm run gen` writes this repo's migration for them.
+ *     A data step hand-added to a template migration is not schema, so the
+ *     template's new migrations are listed for copying it over.
  *   - CHANGELOG.md and frugal.json: the site's own. The template's changelog
  *     is printed instead, and frugal.json is set to the new version.
  *   - files this repo has deleted (the notes example, say): listed, skipped.
@@ -188,6 +190,23 @@ const upgrade = (record: TemplateRecord, target?: string) => {
   }
   if (changed.some(({ path }) => path.startsWith("worker/schema/"))) {
     console.log("The schema changed: run `npm run gen` to write this repo's migration.");
+  }
+  // `npm run gen` only writes structure. A template migration can also carry a
+  // hand-added data step (a backfill, a fix-up), which has to be copied over.
+  const migrations = git([
+    "diff",
+    "--name-only",
+    "--diff-filter=A",
+    ...range,
+    "--",
+    "drizzle/*.sql",
+  ])
+    .split("\n")
+    .filter(Boolean);
+  if (migrations.length) {
+    console.log("Template migrations in this range. Copy any hand-added data step (UPDATE,");
+    console.log("INSERT, DELETE) into the migration `npm run gen` writes here:");
+    for (const m of migrations) console.log(`  git show ${tag(to!)}:${m}`);
   }
   if (!clean) {
     console.log("Conflicts left as markers. Resolve them: git diff --name-only --diff-filter=U");

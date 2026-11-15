@@ -709,8 +709,14 @@ describe("session revocation", () => {
     const config = createAuthConfig();
     config.session.maxSessions = 2;
 
+    // Eviction goes by createdAt, which has millisecond resolution. Sessions
+    // opened back to back in a test can share a millisecond and then sort
+    // arbitrarily, so space them out the way real sign-ins always are.
+    const tick = () => new Promise((resolve) => setTimeout(resolve, 2));
     const first = await openSession(user.id);
+    await tick();
     const second = await openSession(user.id);
+    await tick();
     let third = "";
     await inContext(
       async (auth) => {

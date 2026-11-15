@@ -34,15 +34,19 @@ jobs:
       # from it. The template once got configured for a real site by mistake,
       # which meant the next site inherited a live database id and its first
       # deploy migrated someone else's data.
+      #
+      # The template also runs as a public demo, so its D1 and KV entries hold
+      # the demo's own ids on purpose (see scripts/configure.ts, which treats
+      # them as placeholders). Those exact ids pass; any other real id fails.
       - name: Template placeholders intact
         if: github.repository == 'JaredStanbrook/frug-template'
         run: |
           missing=0
           for token in \
             '"name": "frug-app"' \
-            '"database_name": "change-me-db"' \
-            '"database_id": "00000000-0000-0000-0000-000000000000"' \
-            '"id": "00000000000000000000000000000000"' \
+            '"database_name": "frugal-template-db"' \
+            '"database_id": "0d98fddd-9199-4c3f-81c1-d5180446c0b2"' \
+            '"id": "70192fe342234452b5bf9e741f89d368"' \
             '"bucket_name": "change-me-files"'
           do
             if ! grep -qF "$token" wrangler.jsonc; then
