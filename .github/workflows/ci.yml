@@ -56,6 +56,29 @@ jobs:
           fi
           echo "Placeholders intact."
 
+      # Template repo only. Every change is a release that sites built from
+      # the template can upgrade to, so each pull request bumps frugal.json
+      # and describes itself in CHANGELOG.md. See docs/template-versions.md.
+      - name: Template version bumped and described
+        if: github.repository == 'JaredStanbrook/frug-template'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          version=$(node -p "require('./frugal.json').version")
+          if ! grep -qF "## [$version]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$version]' section for frugal.json's version."
+            exit 1
+          fi
+          if [ -n "$BASE_REF" ]; then
+            git fetch --quiet --depth=1 origin "$BASE_REF"
+            base=$(git show "origin/$BASE_REF:frugal.json" | node -p "JSON.parse(require('fs').readFileSync(0)).version")
+            if [ "$base" = "$version" ]; then
+              echo "::error::frugal.json is still $version, as on $BASE_REF. Bump it: every template change is a release."
+              exit 1
+            fi
+          fi
+          echo "Template version $version."
+
       - name: Lint
         run: npm run lint
 

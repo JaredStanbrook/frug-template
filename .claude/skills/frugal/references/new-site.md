@@ -180,6 +180,10 @@ Deleting the notes table needs a migration. Since nothing real depends on it,
 
 Then `npm run build && npm run test` again.
 
+Keep `frugal.json` exactly as it came: it records the template release this
+site was made from, and is how the site upgrades later. Never edit it by hand;
+`npm run template -- upgrade` changes it.
+
 ## Step 6 — Hand back
 
 Tell the user, concretely:

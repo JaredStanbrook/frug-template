@@ -19,6 +19,8 @@
     "create-admin:local": "tsx scripts/create-admin.ts --local",
     "create-admin:remote": "tsx scripts/create-admin.ts --remote",
     "configure": "tsx scripts/configure.ts",
+    "// template": "Template versions: `npm run template` shows what changed since frugal.json's version; `-- upgrade` applies it. See docs/template-versions.md.",
+    "template": "tsx scripts/template.ts",
     "lint": "eslint .",
     "format": "prettier --check .",
     "format:write": "prettier --write .",

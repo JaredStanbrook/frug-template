@@ -9,6 +9,9 @@ import type { SafeUser } from "./schema/auth.schema.ts";
 import { apiAuth } from "./routes/api/auth";
 import { webAuth } from "./routes/web/auth";
 import { logsRoute } from "./routes/admin/logs";
+import { accessAdminRoute } from "./routes/admin/access.tsx";
+import { accessRoute } from "./routes/access.tsx";
+import { accessGate } from "./middleware/access-gate.middleware.ts";
 import { notesRoute } from "./routes/notes.tsx";
 import { seoRoute } from "./routes/seo";
 import devRouter from "./routes/dev.tsx";
@@ -23,6 +26,7 @@ import type { AppEnv } from "./types";
 const admin = new Hono<AppEnv>();
 admin.use("*", requireRole("admin"));
 admin.route("/logs", logsRoute);
+admin.route("/access", accessAdminRoute);
 
 // ==========================================
 // 2. MAIN APP
@@ -36,6 +40,14 @@ const app = new Hono<AppEnv>()
 
   // Global renderer (wraps SSR responses in Layout).
   .use("*", globalRenderer)
+
+  // ACCESS_GATE: off by default. When on, every route below needs an
+  // invitation link or an admin session, except the few the middleware lists
+  // as open (sign-in, the link itself, /gone). See access-gate.middleware.ts.
+  .use("*", accessGate)
+
+  // Invitation links (/a/:token) and the page the gate sends everyone else to.
+  .route("/", accessRoute)
 
   .route("/admin", admin)
 

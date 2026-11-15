@@ -3,7 +3,60 @@
 All notable changes to this template are documented here.
 This project follows Semantic Versioning.
 
-## [Unreleased]
+Every change to the template is a release: bump `version` in `frugal.json`
+and add a section here headed `## [<version>] - <date>`. CI refuses a pull
+request that does neither, and merging to `main` tags the release `v<version>`.
+Sites built from the template read these sections when they upgrade, so write
+each one for a site owner: what changed, and anything they must do by hand.
+See `docs/template-versions.md`.
+
+## [0.2.0] - 2026-11-15
+
+### Template versions
+
+- `frugal.json` records the template release a repo is built from. A site made
+  from the template inherits it, so it knows which version it started on.
+- `npm run template` lists the releases a site has not applied, with their
+  changelog. `npm run template -- upgrade [version]` replays the template's
+  changes between the two releases as a three-way merge, then sets the new
+  version. `drizzle/` is skipped (run `npm run gen` for schema changes), as
+  are files the site deleted.
+- Sites made before versioning have no `frugal.json`. Work out by hand which
+  release they match (`npm run template -- guess` helps), then
+  `npm run template -- pin <version>`.
+- CI (template repo only) requires a version bump and a changelog section on
+  every pull request. A merge to `main` tags `v<version>` and publishes a
+  GitHub release from that section.
+
+### Access gate
+
+Lock a site to invited visitors while it is not public yet. Ported from a
+production site and generalised.
+
+- `ACCESS_GATE` in `wrangler.jsonc`: `"off"` (default), `"session"` or
+  `"link"`. `"true"` is read as `"session"`.
+  - `"session"`: a link works once. Opening it mints a session token for that
+    browser's `site_access` cookie, so a forwarded copy is refused.
+  - `"link"`: the link is the credential. It keeps working, in any browser,
+    until it expires or is revoked.
+- Admins create, copy and revoke links at `/admin/access`. A link's clock
+  starts on first open, not on creation. Opening takes a POST from a Continue
+  button, so chat link previews cannot spend or start a link.
+- Everyone else is sent to `/gone`. Sign-in, `/api`, the bundle, fonts and
+  favicon stay reachable; a signed-in admin sees everything. While locked,
+  `robots.txt` disallows all, `sitemap.xml` is a 404, and pages a locked-out
+  visitor can reach render bare, with no nav, footer, tagline or share image.
+- Files in `public/` are not gated unless `run_worker_first` is uncommented in
+  `wrangler.jsonc`.
+- Schema: new `access_link` table. `timestampColumns` added to
+  `worker/schema/common.ts` for rows that belong to the site, not a user.
+- Upgrading: run `npm run gen` for the table, and add the `site_access` cookie
+  to your privacy notice if you turn the gate on.
+
+## [0.1.0]
+
+The first release: everything before versioning began. Tagged `v0.1.0` at
+commit `0896328`.
 
 First release. The template is the platform layer of a production Cloudflare
 Workers application, with that application's domain removed, designed so a new

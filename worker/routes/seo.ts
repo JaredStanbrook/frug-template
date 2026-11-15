@@ -2,6 +2,7 @@ import { Hono } from "hono";
 
 import type { AppEnv } from "@server/types";
 import { robotsTxt, sitemapXml, type SitemapEntry } from "@server/lib/seo";
+import { isGateEnabled } from "@server/services/access-gate.service";
 
 export const seoRoute = new Hono<AppEnv>();
 
@@ -19,7 +20,9 @@ export const seoRoute = new Hono<AppEnv>();
 const STATIC_ROUTES: SitemapEntry[] = [{ loc: "/", changefreq: "weekly", priority: 1.0 }];
 
 seoRoute.get("/robots.txt", (c) =>
-  c.text(robotsTxt(c.var.app, c.env.ENVIRONMENT), 200, {
+  // A locked site gets the same "disallow everything, no sitemap" answer as
+  // staging: nothing behind the access gate should be crawled or listed.
+  c.text(robotsTxt(c.var.app, isGateEnabled(c.env) ? "locked" : c.env.ENVIRONMENT), 200, {
     // Crawlers re-fetch this often; a day of caching is plenty and keeps the
     // Worker off the critical path for something that rarely changes.
     "Cache-Control": "public, max-age=86400",
@@ -27,6 +30,9 @@ seoRoute.get("/robots.txt", (c) =>
 );
 
 seoRoute.get("/sitemap.xml", async (c) => {
+  // Listing the pages would hand out their names while the site is locked.
+  if (isGateEnabled(c.env)) return c.notFound();
+
   const entries: SitemapEntry[] = [...STATIC_ROUTES];
 
   // Example of adding database-backed URLs — delete with the notes feature.

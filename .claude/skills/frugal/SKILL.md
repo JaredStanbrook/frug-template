@@ -429,6 +429,32 @@ command) applies migrations immediately before the new code goes live. D1
 migrations are forward-only, so a destructive change needs a forward fix
 rather than a rollback. `docs/deploy.md` covers setup, failures and rollback.
 
+## Template versions
+
+`frugal.json` records the template release a repo is built from.
+
+- **In the template repo,** every change is a release: bump its `version`
+  (semver) and add a `## [<version>] - <date>` section to `CHANGELOG.md`
+  saying what a site owner gets and must do by hand. CI fails without both,
+  and merging to `main` tags `v<version>`. Schema changes still get a
+  migration here; sites generate their own on upgrade.
+- **In a site,** never hand-edit it. `npm run template` lists releases not yet
+  applied; `npm run template -- upgrade` merges them in, then run
+  `npm run gen` if the schema changed, and resolve any conflict markers.
+- **A site with no `frugal.json`** predates versioning. Do not guess its
+  version silently: follow "Sites made before versioning" in
+  `docs/template-versions.md`, confirm the release with the user, then `pin`.
+
+## Access gate
+
+`ACCESS_GATE` locks a site to invited visitors: `"off"`, `"session"` (one
+browser per link, single-use) or `"link"` (the link works anywhere until it
+expires). Links are managed at `/admin/access`. A route a locked-out visitor
+must reach goes in `OPEN_PATHS` / `OPEN_PREFIXES` in
+`worker/middleware/access-gate.middleware.ts`; everything else is gated
+automatically. Turning it on for a site with a privacy notice means adding the
+`site_access` cookie to that notice.
+
 ## Reference files
 
 - `references/new-site.md` — **read this first if the repo is still the
