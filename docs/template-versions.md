@@ -37,7 +37,9 @@ Not applied:
 - **`drizzle/`.** Migration numbers belong to each repo, so a template
   migration would collide with the site's own. The schema files in
   `worker/schema/` are patched instead: run `npm run gen` and the site writes
-  its own migration for the change.
+  its own migration for the change. `npm run gen` writes structure only, so
+  the template's new migrations are listed too: copy any hand-added data step
+  in them (an `UPDATE` backfill, say) into the site's migration.
 - **`CHANGELOG.md` and `frugal.json`.** The site's own. The template's
   changelog for the releases applied is printed instead.
 - **Files the site deleted**, such as the notes example. They are listed so
