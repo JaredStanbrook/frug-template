@@ -50,25 +50,29 @@ software terms.
 >
 > 1. **Purpose** — what it does, in one sentence. Who it is for. What replaces
 >    it today.
-> 2. **Users and roles** — every kind of person with an account, and what each
+> 2. **The one thing** — the single most important content on the site: what
+>    a visitor came for (a shop's collection, a team's fixtures, a user's
+>    list of jobs). It is the first thing on the first page, with no heading,
+>    blurb and button in front of it. Make me pick one.
+> 3. **Users and roles** — every kind of person with an account, and what each
 >    may and may not do. Whether sign-up is open, invite-only, or admin-created.
-> 3. **Things** — the main objects the app stores. For each: what it is called,
+> 4. **Things** — the main objects the app stores. For each: what it is called,
 >    what information it holds, who owns it, and which other things it relates
 >    to. Push me until each object has a clear owner.
-> 4. **What people do** — the handful of actions that matter most, as short
+> 5. **What people do** — the handful of actions that matter most, as short
 >    sentences: "a coach adds a player to a squad", "a parent pays an invoice".
-> 5. **Where the operator sits** — am I only running this app, or am I also one
+> 6. **Where the operator sits** — am I only running this app, or am I also one
 >    of the people in it? If the app divides, totals, counts or ranks anything,
 >    ask me explicitly who is included, and name us: "split three ways between
 >    Ethan, Karys and Joel" and "split four ways between them and me" are
 >    different apps, and I am likely to say the first while meaning the second.
 >    Do not settle for "everyone" or "the participants" — list them.
-> 6. **Screens** — the pages, what each shows, and what a user does on each.
+> 7. **Screens** — the pages, what each shows, and what a user does on each.
 >    What the first screen after signing in should be.
-> 7. **Public vs private** — anything a signed-out visitor can see.
-> 8. **Files** — whether users upload anything, what kind, roughly how big.
-> 9. **Look and feel** — three adjectives, and any site whose feel I like.
-> 10. **Out of scope** — what this version deliberately does not do.
+> 8. **Public vs private** — anything a signed-out visitor can see.
+> 9. **Files** — whether users upload anything, what kind, roughly how big.
+> 10. **Look and feel** — three adjectives, and any site whose feel I like.
+> 11. **Out of scope** — what this version deliberately does not do.
 >
 > When you have enough, output the brief under exactly these headings, and
 > nothing else:
@@ -76,6 +80,7 @@ software terms.
 > ```
 > # <App name>
 > ## Purpose
+> ## The one thing
 > ## Users and roles
 > ## Data model
 > ## Key actions
@@ -141,6 +146,9 @@ configures the repo and builds.
   anything gets divided, totalled or counted, spell out who is counted — a
   bill "split between my three roommates" turned out to mean four ways, which
   was a schema change rather than a copy change.
+- **Name the one thing.** Every site has one piece of content people come
+  for. Naming it decides the first page: it opens on that content, not on a
+  heading, a sentence about the site and a button.
 - **Say what it does not do.** It stops scope drifting mid-build.
 - **Describe feel, not pixels.** "Calm, dense, spreadsheet-like" gives more to
   work with than a hex code, and the theme system handles colour.

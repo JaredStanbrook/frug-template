@@ -47,6 +47,9 @@ covers, but keep it to a handful of questions — do not interrogate. The
 minimum you need before writing a schema:
 
 - What the app is for, in a sentence.
+- **The one thing:** the single most important content on the site, what a
+  visitor came for. The first page opens on it (see "Pages open on their
+  content" in `SKILL.md`). If the brief does not name it, ask; do not guess.
 - The main objects, and which belongs to which.
 - Who has accounts, and what different roles may do.
 - Whether anything is public to signed-out visitors.
@@ -173,7 +176,9 @@ Once at least one real feature works, remove the example so it does not ship:
 - its paths in `tests/ui-pages.test.ts`
 
 Also replace `worker/views/pages/Home.tsx` — the template's landing page
-describes the template — and `public/favicon.svg`.
+describes the template — and `public/favicon.svg`. The new home page opens on
+the brief's **one thing** itself: the collection, the list, the dashboard.
+Not a heading, a sentence about the site and a button leading to it.
 
 Deleting the notes table needs a migration. Since nothing real depends on it,
 `npm run gen` produces the drop; check it only touches `note`.

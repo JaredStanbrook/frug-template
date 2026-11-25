@@ -153,6 +153,27 @@ One habit covers most of these: **open the page in a real browser before
 calling it done** — both modes, and at 390px wide. Playwright is available.
 The tests render HTML; they never look at it.
 
+## Pages open on their content
+
+Every site has one thing people come for — a shop's collection, a team's
+fixtures, a user's list of jobs. The brief names it ("The one thing"); if it
+does not, ask before building the home page.
+
+- **The home page opens on that thing.** The first element under the nav is
+  the content itself, with at most a short title over it. No hero: no big
+  heading, sentence about the site and call-to-action button in front of
+  what the button would lead to.
+- **Every other main page does the same.** A page's title names it in a few
+  words ("Orders", "Made to measure"); its content starts right under that.
+  No slogan as a heading, no intro paragraph restating the nav.
+- **The nav carries the wayfinding.** Sections and categories live there, so
+  pages do not need filter bars and "browse" buttons to reach each other.
+- **Words name things; they do not sell them.** If a page needs a paragraph
+  to explain itself, the layout is wrong.
+
+The template's own `Home.tsx` shows the shape: a one-line title, then the
+content.
+
 ## The split
 
 **Backend — runs in the Worker:**
