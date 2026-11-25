@@ -72,6 +72,10 @@ const CHALLENGE_TTL = 300; // 5 minutes
  */
 const ABSENT_USER_HASH = "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
+/** Every passkey sign-in failure the visitor could learn from says only this. */
+const PASSKEY_SIGN_IN_FAILED =
+  "Could not sign in with a passkey for that email. Check it, or sign in another way.";
+
 export class Auth {
   private db: any;
   private kv: KVNamespace;
@@ -1148,9 +1152,10 @@ export class Auth {
   // PASSKEY: REGISTRATION
   // ==========================================
 
-  async generatePasskeyRegistrationOptions(email: string) {
+  async generatePasskeyRegistrationOptions(rawEmail: string, displayName?: string) {
     if (!this.isMethodEnabled("passkey")) throw new Error("Passkey registration is not enabled.");
 
+    const email = this.normaliseEmail(rawEmail);
     this.validateRegistrationEligibility(email);
     await this.assertRegistrationOpen(email);
 
@@ -1164,6 +1169,8 @@ export class Auth {
       rpID: this.c.env.RP_ID,
       userID: isoUint8Array.fromUTF8String(tempUserId),
       userName: email,
+      // What the phone or password manager shows when choosing a passkey.
+      userDisplayName: displayName || email,
       attestationType: "none",
       excludeCredentials: [],
       authenticatorSelection: {
@@ -1177,11 +1184,13 @@ export class Auth {
   }
 
   async verifyPasskeyRegistration(
-    email: string,
-    role: string | undefined,
+    rawEmail: string,
+    role: string | null | undefined,
     response: RegistrationResponseJSON,
     challengeId: string,
+    displayName?: string,
   ) {
+    const email = this.normaliseEmail(rawEmail);
     this.validateRegistrationEligibility(email);
     await this.assertRegistrationOpen(email);
 
@@ -1232,6 +1241,7 @@ export class Auth {
     const userData: InsertUser = {
       id: crypto.randomUUID(),
       email: email,
+      displayName: displayName || null,
     };
     const [newUser] = await this.db.insert(users).values(userData).returning();
 
@@ -1269,8 +1279,6 @@ export class Auth {
       deviceName: "Passkey Authenticator",
     });
 
-    const sessionToken = await this.createSession(newUser.id);
-
     // Logging with specific metadata for passkeys
     await this.logAuthEvent({
       userId: newUser.id,
@@ -1283,11 +1291,11 @@ export class Auth {
     }
     this.user = safeUser;
 
+    // The caller opens the session (createSession), as for every other method.
     return {
       user: safeUser,
       requiresVerification: this.authConfig.security.requireEmailVerification,
       verified: true,
-      sessionToken,
     };
   }
 
@@ -1295,11 +1303,15 @@ export class Auth {
   // PASSKEY: LOGIN
   // ==========================================
 
-  async generatePasskeyLoginOptions(email: string) {
+  async generatePasskeyLoginOptions(rawEmail: string) {
     if (!this.isMethodEnabled("passkey")) throw new Error("Passkey login is not enabled.");
 
+    // One answer for an unknown email, an account with no passkey and a
+    // deactivated one, as for a wrong password: anything more specific tells
+    // a stranger which addresses have accounts here.
+    const email = this.normaliseEmail(rawEmail);
     const user = await this.db.select().from(users).where(eq(users.email, email)).get();
-    if (!user) throw new Error("No account found with this email.");
+    if (!user || !user.isActive) throw new Error(PASSKEY_SIGN_IN_FAILED);
 
     const userAuths = await this.db
       .select()
@@ -1307,7 +1319,7 @@ export class Auth {
       .where(eq(credentials.userId, user.id))
       .all();
 
-    if (userAuths.length === 0) throw new Error("No passkeys registered for this account.");
+    if (userAuths.length === 0) throw new Error(PASSKEY_SIGN_IN_FAILED);
 
     const options = await generateAuthenticationOptions({
       rpID: this.c.env.RP_ID,
@@ -1325,23 +1337,30 @@ export class Auth {
   }
 
   async verifyPasskeyLogin(
-    email: string,
+    rawEmail: string,
     response: AuthenticationResponseJSON,
     challengeId: string,
   ) {
     const expectedChallenge = await this.getChallenge(challengeId);
     if (!expectedChallenge) throw new Error("Login session expired. Please try again.");
 
+    const email = this.normaliseEmail(rawEmail);
     const user = await this.db.select().from(users).where(eq(users.email, email)).get();
-    if (!user) throw new Error("User not found.");
+    if (!user || !user.isActive) throw new Error(PASSKEY_SIGN_IN_FAILED);
+    if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+      throw new Error("Account is temporarily locked");
+    }
 
+    // The passkey must be this account's own. Looked up by its id alone, any
+    // valid passkey on the site — the attacker's own — would sign them in as
+    // whichever email they typed.
     const pass = await this.db
       .select()
       .from(credentials)
-      .where(eq(credentials.credentialId, response.id))
+      .where(and(eq(credentials.credentialId, response.id), eq(credentials.userId, user.id)))
       .get();
 
-    if (!pass) throw new Error("Passkey not recognized.");
+    if (!pass) throw new Error(PASSKEY_SIGN_IN_FAILED);
 
     let verification;
     try {
@@ -1371,6 +1390,10 @@ export class Auth {
         lastUsedAt: new Date().toISOString(),
       })
       .where(eq(credentials.id, pass.id));
+    await this.db
+      .update(users)
+      .set({ failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: new Date().toISOString() })
+      .where(eq(users.id, user.id));
 
     await this.logAuthEvent({
       userId: user.id,

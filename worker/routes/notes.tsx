@@ -8,7 +8,7 @@
 
 import { Hono } from "hono";
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
-import { zValidator } from "@hono/zod-validator";
+import { zValidator } from "@server/lib/validator";
 
 import type { AppEnv } from "@server/types";
 import { note, noteFormSchema, noteFilterSchema } from "@server/schema/note.schema";

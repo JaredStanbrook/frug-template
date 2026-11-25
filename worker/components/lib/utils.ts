@@ -20,12 +20,24 @@ type ErrorResponse = {
   json(): Promise<unknown>;
 };
 
+/**
+ * The server's error, as a sentence. Our routes send `{ error: "…" }`; this
+ * also copes with an object in `error` (a validation error from code that does
+ * not use worker/lib/validator.ts), which used to be shown as "[object Object]".
+ */
 export async function getErrorMessage(res: ErrorResponse) {
+  const fallback =
+    res.status >= 500
+      ? "Something went wrong on our side. Please try again."
+      : "That did not work. Please check the details and try again.";
   try {
     const data = (await res.json()) as any;
-    return data?.error || data?.message || "An unexpected error occurred";
+    const error = data?.error ?? data?.message;
+    if (typeof error === "string" && error && !error.startsWith("[")) return error;
+    const issue = error?.issues?.[0]?.message;
+    return typeof issue === "string" ? issue : fallback;
   } catch {
-    return `Request failed with status ${res.status}`;
+    return fallback;
   }
 }
 

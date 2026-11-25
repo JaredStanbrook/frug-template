@@ -334,6 +334,12 @@ Properties the auth service holds, worth not undoing. All are covered by
   test whether an address has an account.
 - **Signing out revokes the session**, changing a password ends every *other*
   session, and a reset ends all of them.
+- **A passkey signs in only its own account.** Sign-in looks the passkey up
+  by its id *and* the account's id. By id alone, any passkey on the site
+  would sign its holder in as whichever email they typed.
+- **Validation errors are sentences.** Import `zValidator` from
+  `@server/lib/validator`, not the package, or a refused request reaches the
+  page as "[object Object]".
 - **Emails are stored and compared lowercased**, via `normaliseEmail`. SQLite
   compares text case-sensitively, so skipping it lets one mailbox become two
   accounts and locks people out of their own.

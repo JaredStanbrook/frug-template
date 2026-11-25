@@ -181,11 +181,37 @@ export const loginUserSchema = z.object({
   pin: z.string().min(4).max(10).optional(),
   totpCode: z.string().min(6).max(6).optional(),
 });
-export const registerUserSchema = insertUserSchema.extend({
-  password: z.string().min(8).optional(),
-  totpCode: z.string().min(6).max(6).optional(),
+/**
+ * The name every sign-up form asks for, the same way: optional, trimmed, and
+ * empty taken as not given.
+ */
+export const displayNameField = z
+  .string()
+  .trim()
+  .max(50, "A name is at most 50 characters")
+  .optional()
+  .nullable()
+  .transform((v) => v || undefined);
 
-  role: z.string().optional(),
+/**
+ * A role chosen at sign-up. Forms send null when the site offers only one
+ * role and so shows no picker; that means the default, not an error.
+ */
+const roleField = z
+  .string()
+  .nullish()
+  .transform((v) => v || undefined);
+
+/** Only what a sign-up may set. Everything else on a user is the server's. */
+export const registerUserSchema = z.object({
+  email: z.email("That email address does not look right"),
+  username: z.string().trim().min(1).max(50).optional(),
+  displayName: displayNameField,
+  phoneNumber: z.string().trim().max(20).optional(),
+  password: z.string().min(8).optional(),
+  pin: z.string().min(4).max(10).optional(),
+  totpCode: z.string().min(6).max(6).optional(),
+  role: roleField,
 });
 export const safeUserSchema = selectUserSchema.extend({
   roles: z.array(z.string()),
@@ -223,13 +249,15 @@ export const changePinRequestSchema = z.object({
 // 🔐 PassKey
 // ==========================================
 export const registerPasskeyOptionsSchema = z.object({
-  email: z.email(),
+  email: z.email("That email address does not look right"),
+  displayName: displayNameField,
 });
 
 // Strictly typed Registration Response
 export const registerPasskeyVerifySchema = z.object({
-  email: z.email(),
-  role: z.string().optional(),
+  email: z.email("That email address does not look right"),
+  displayName: displayNameField,
+  role: roleField,
   challengeId: z.string().min(1),
   response: z.object({
     id: base64UrlString,

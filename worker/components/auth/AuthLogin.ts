@@ -259,7 +259,12 @@ export class AuthLogin extends LitElement {
 
       redirectWithToast("/", "Login successful!", "Welcome to your dashboard.", "success");
     } catch (error: any) {
-      this.showError(error.message);
+      // The browser says the same for cancelled, timed out and no passkey here.
+      this.showError(
+        error.name === "NotAllowedError"
+          ? "No passkey was used. Try again, or sign in another way."
+          : error.message,
+      );
     } finally {
       this.isSubmitting = false;
       this.enableSubmitButton(form);
