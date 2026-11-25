@@ -136,7 +136,15 @@ describe("UI pages load", () => {
   it("serves protected pages to a signed-in admin", async () => {
     const testApp = createTestApp(createMockData().users[0]);
 
-    for (const path of ["/", "/profile", "/notes", "/notes/new", "/notes/1/edit", "/admin/logs"]) {
+    for (const path of [
+      "/",
+      "/profile",
+      "/notes",
+      "/notes/new",
+      "/notes/1/edit",
+      "/admin/logs",
+      "/admin/analytics",
+    ]) {
       const res = await get(testApp, path);
       expect(res.status, `GET ${path}`).toBe(200);
     }
