@@ -95,7 +95,7 @@ describe("UI pages load", () => {
   it("serves public pages to signed-out visitors", async () => {
     const testApp = createTestApp(null);
 
-    for (const path of ["/", "/login", "/register"]) {
+    for (const path of ["/", "/login", "/register", "/cookies"]) {
       const res = await get(testApp, path);
       expect(res.status, `GET ${path}`).toBe(200);
     }

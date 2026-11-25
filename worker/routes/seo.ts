@@ -17,7 +17,10 @@ export const seoRoute = new Hono<AppEnv>();
  * query it in the handler below and concatenate. Keep the list under ~50,000
  * URLs; past that, sitemaps have to be split and indexed.
  */
-const STATIC_ROUTES: SitemapEntry[] = [{ loc: "/", changefreq: "weekly", priority: 1.0 }];
+const STATIC_ROUTES: SitemapEntry[] = [
+  { loc: "/", changefreq: "weekly", priority: 1.0 },
+  { loc: "/cookies", changefreq: "yearly", priority: 0.1 },
+];
 
 seoRoute.get("/robots.txt", (c) =>
   // A locked site gets the same "disallow everything, no sitemap" answer as

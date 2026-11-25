@@ -98,7 +98,10 @@ export const ThemeToggle = () => html`
       }
 
       function setTheme(theme) {
-        localStorage.setItem(STORAGE_KEY, theme);
+        // A remembered theme is a functional cookie's job: kept only with consent.
+        if (window.cookieConsent && window.cookieConsent.allows("functional")) {
+          localStorage.setItem(STORAGE_KEY, theme);
+        }
         currentTheme = theme;
         applyTheme(theme);
         updateIcons(theme);

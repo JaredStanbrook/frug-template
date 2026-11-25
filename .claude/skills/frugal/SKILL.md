@@ -472,6 +472,29 @@ rather than a rollback. `docs/deploy.md` covers setup, failures and rollback.
   version silently: follow "Sites made before versioning" in
   `docs/template-versions.md`, confirm the release with the user, then `pin`.
 
+## Cookies and consent
+
+Every cookie and local-storage item the site sets is listed once, with its
+category, in `worker/config/cookies.config.ts`. The banner, the preferences
+dialog and the `/cookies` page are built from that list.
+
+- **Strictly necessary** (sign-in, flash messages, the access gate, the
+  consent cookie itself) need no consent and are always on.
+- **Functional, performance, targeting** are off until the visitor allows
+  them. `COOKIE_CATEGORIES` in `wrangler.jsonc` says which of the three the
+  site offers; list only what it really uses. Empty means no banner at all.
+- **Adding a cookie:** add it to `COOKIES` under its category. Then set it only
+  with consent: `allows(c, "performance")` on the server
+  (`worker/lib/consent.ts`), `window.cookieConsent.allows("performance")` in
+  the browser. A `cookie-consent` event fires on `window` when the visitor
+  chooses again, so a script can start (or stop) then.
+- **Remembered theme is functional.** The theme toggle saves the choice only
+  while functional cookies are allowed, and withdrawing them clears it.
+
+Never load analytics or an advertising tag before `allows` says yes, and never
+add a non-necessary cookie without listing it: the list is what the visitor
+is shown, so an unlisted cookie is one they were not told about.
+
 ## Access gate
 
 `ACCESS_GATE` locks a site to invited visitors: `"off"`, `"session"` (one

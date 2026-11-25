@@ -49,6 +49,12 @@ export type Vars = {
    * Unset or empty: the whole site.
    */
   ACCESS_GATE_PATHS?: string;
+  /**
+   * The optional cookie categories the site uses, e.g.
+   * "functional,performance". Unset: all three; empty: none, and no banner.
+   * See worker/config/cookies.config.ts.
+   */
+  COOKIE_CATEGORIES?: string;
 };
 
 /**

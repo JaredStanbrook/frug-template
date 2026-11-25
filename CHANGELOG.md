@@ -33,6 +33,30 @@ is the content itself.
 **By hand:** nothing is required. If your home page or other main pages
 open on a hero, consider replacing it with the content it points to.
 
+### Cookie consent
+
+A banner along the bottom of the page (it covers nothing and blocks nothing)
+offers **Cookie preferences**, **Reject all** and **Accept all cookies**.
+Preferences opens a dialog with each category — strictly necessary (always
+on), functional, performance, targeting — a switch for each, and the cookies
+in it. The choice is saved for six months in `cookie_consent`; "Cookie
+preferences" at the foot of every page changes it, and `/cookies` lists
+everything (and works without JavaScript).
+
+- `worker/config/cookies.config.ts` lists every cookie and its category.
+- `worker/lib/consent.ts`: `allows(c, category)` on the server;
+  `window.cookieConsent.allows(category)` and a `cookie-consent` event in the
+  browser.
+- `COOKIE_CATEGORIES` (new var) names the optional categories the site uses.
+  Unset: all three. Empty: only necessary cookies, and no banner.
+- The theme toggle now remembers the theme only while functional cookies
+  are allowed.
+
+**By hand:** add `COOKIE_CATEGORIES` to your `wrangler.jsonc` vars with only
+the categories you use (`""` if you set no optional cookies), list any
+cookies of your own in `cookies.config.ts`, and gate their scripts with
+`allows`. If you have a privacy notice, link it from the `/cookies` page.
+
 ## [0.3.0] - 2026-11-15
 
 ### Faster sign-in check
