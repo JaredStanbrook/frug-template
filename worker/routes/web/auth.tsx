@@ -11,9 +11,9 @@ import { websiteSchema } from "@server/lib/structured-data";
 export const webAuth = new Hono<AppEnv>();
 
 webAuth.get("/", (c) => {
-  const { auth, app } = c.var;
+  const { app } = c.var;
 
-  return c.render(<Home app={app} user={auth.user} />, {
+  return c.render(<Home />, {
     // The home page is the site's own entry in search results. The site name
     // alone tells a searcher who has never heard of it nothing, so the title
     // says what the site is — "{tagline} · {name}" — and the tagline doubles

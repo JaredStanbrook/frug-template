@@ -13,6 +13,12 @@ has a prompt to paste into any chat assistant that produces this for you.
 
 What the app does, in one sentence. Who uses it. What they do today instead.
 
+## The one thing
+
+The single most important content on the site: what a visitor came for (a
+shop's collection, a team's fixtures, your list of jobs). The first page
+opens on it, with no heading, blurb and button in front of it.
+
 ## Users and roles
 
 Every kind of person with an account, with a short lowercase name for each

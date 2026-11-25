@@ -10,6 +10,29 @@ Sites built from the template read these sections when they upgrade, so write
 each one for a site owner: what changed, and anything they must do by hand.
 See `docs/template-versions.md`.
 
+## [0.4.0] - 2026-11-25
+
+### Pages open on their content
+
+The template's home page was a hero: a badge, a big heading, a tagline, two
+buttons and an illustration, all in front of the content. Sites built from
+it copied that shape onto every main page. Now the first thing under the nav
+is the content itself.
+
+- The brief asks for **the one thing**: the single most important content on
+  the site, what a visitor came for (`docs/brief-prompt.md`,
+  `docs/brief-template.md`). The new-site steps ask for it before building
+  and open the home page on it.
+- The frugal skill gains "Pages open on their content": no hero heading,
+  blurb and call-to-action button before the content; a page's title names
+  it in a few words; the nav carries the wayfinding.
+- `worker/views/pages/Home.tsx` is a one-line title and the feature panel.
+  The badge, tagline, sign-in buttons (the nav has them) and orbit
+  illustration are gone.
+
+**By hand:** nothing is required. If your home page or other main pages
+open on a hero, consider replacing it with the content it points to.
+
 ## [0.3.0] - 2026-11-15
 
 ### Faster sign-in check
