@@ -10,6 +10,48 @@ Sites built from the template read these sections when they upgrade, so write
 each one for a site owner: what changed, and anything they must do by hand.
 See `docs/template-versions.md`.
 
+## [0.5.1] - 2026-11-25
+
+### Security: passkey sign-in
+
+- **A passkey could sign in to an account that was not its own.** Sign-in
+  looked the passkey up by its id alone, so anyone with a passkey on the
+  site, on their own account, could ask to sign in as any email address,
+  sign with their own passkey, and be let in as that person. The passkey
+  must now belong to the account. Every site with `passkey` in
+  `AUTH_METHODS` should upgrade now.
+- Passkey sign-in also refuses deactivated and locked accounts, as password
+  sign-in does, and records the sign-in time.
+- It no longer tells a stranger whether an email has an account or a
+  passkey: one message for all of them.
+
+### Fixed: signing up
+
+- **Passkey sign-up failed with "[object Object]".** With only one role on
+  offer there is no role picker, so the form sent `role: null`, which the
+  server refused. A missing role now means the default, on every method.
+  Passkey sign-up also opened its session with the wrong argument, and
+  opened two; it now opens one, as the others do.
+- **Every refused request explains itself in a sentence.** Validation
+  errors were sent as an object, and the page printed "[object Object]".
+  `worker/lib/validator.ts` wraps `zValidator` to answer
+  `{ error: "<sentence>" }`, and the browser's `getErrorMessage` copes with
+  an object anyway.
+- **The name is asked the same way on every sign-up form.** Passkey asked
+  for it (and then threw it away); password and PIN did not ask. Now each
+  form has the same optional "Your name", and it is saved. A passkey shows
+  it in the phone's or password manager's passkey list.
+- Passkey sign-up and sign-in now lowercase the email, like every other
+  path, so one mailbox cannot become two accounts.
+- A sign-up can set only its own details: `registerUserSchema` lists them,
+  rather than accepting every column of `users`.
+- Clearer words when a passkey prompt is cancelled, or the device already
+  has one.
+
+**By hand:** nothing, unless you copied `zValidator` from
+`@hono/zod-validator` into routes of your own: import it from
+`@server/lib/validator` to get the same plain errors.
+
 ## [0.5.0] - 2026-11-25
 
 ### Cookie consent

@@ -2,7 +2,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { csrf } from "hono/csrf";
-import { zValidator } from "@hono/zod-validator";
+import { zValidator } from "@server/lib/validator";
 import {
   loginUserSchema,
   registerUserSchema,
@@ -33,10 +33,10 @@ export const passkey = new Hono<AppEnv>()
   // 1. Register Options
   .post("/register/options", zValidator("json", registerPasskeyOptionsSchema), async (c) => {
     try {
-      const { email } = c.req.valid("json");
+      const { email, displayName } = c.req.valid("json");
       const { auth } = c.var;
 
-      const result = await auth.generatePasskeyRegistrationOptions(email);
+      const result = await auth.generatePasskeyRegistrationOptions(email, displayName);
 
       // Return options directly, challengeId is included in result
       return c.json({ ...result.options, challengeId: result.challengeId });
@@ -57,14 +57,19 @@ export const passkey = new Hono<AppEnv>()
   // 2. Register Verify
   .post("/register/verify", zValidator("json", registerPasskeyVerifySchema), async (c) => {
     try {
-      const { email, role, response, challengeId } = c.req.valid("json");
+      const { email, displayName, role, response, challengeId } = c.req.valid("json");
       const { auth } = c.var;
 
-      const { user, requiresVerification, verified, sessionToken } =
-        await auth.verifyPasskeyRegistration(email, role, response as any, challengeId);
+      const { user, requiresVerification, verified } = await auth.verifyPasskeyRegistration(
+        email,
+        role,
+        response as any,
+        challengeId,
+        displayName,
+      );
 
-      // Set Cookie
-      await auth.createSession({ id: sessionToken.user.id, roles: sessionToken.user.roles });
+      // One session, opened here as for every other way of signing up.
+      await auth.createSession({ id: user.id, roles: user.roles });
 
       return c.json({ user, requiresVerification, verified });
     } catch (e: any) {

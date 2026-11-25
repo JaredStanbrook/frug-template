@@ -115,7 +115,9 @@ export class AuthRegister extends LitElement {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const confirmPassword = formData.get("confirmPassword") as string;
-    const role = formData.get("role") as string;
+    // No picker when the site offers one role: then the server's default.
+    const role = (formData.get("role") as string | null) || undefined;
+    const displayName = ((formData.get("displayName") as string | null) ?? "").trim() || undefined;
 
     // Validation
     if (!email || !password || !confirmPassword) {
@@ -138,7 +140,7 @@ export class AuthRegister extends LitElement {
 
     try {
       const response = await api.auth.register.$post({
-        json: { email, password, role },
+        json: { email, password, role, displayName },
       });
 
       if (!response.ok) throw new Error(await getErrorMessage(response));
@@ -162,7 +164,9 @@ export class AuthRegister extends LitElement {
     const email = formData.get("email") as string;
     const pin = formData.get("pin") as string;
     const confirmPin = formData.get("confirmPin") as string;
-    const role = formData.get("role") as string;
+    // No picker when the site offers one role: then the server's default.
+    const role = (formData.get("role") as string | null) || undefined;
+    const displayName = ((formData.get("displayName") as string | null) ?? "").trim() || undefined;
 
     // Validation
     if (!email || !pin || !confirmPin) {
@@ -185,7 +189,7 @@ export class AuthRegister extends LitElement {
 
     try {
       const response = await api.auth.register.$post({
-        json: { email, pin, role },
+        json: { email, pin, role, displayName },
       });
 
       if (!response.ok) throw new Error(await getErrorMessage(response));
@@ -207,11 +211,12 @@ export class AuthRegister extends LitElement {
     const formData = new FormData(form);
 
     const email = formData.get("email") as string;
-    const name = formData.get("name") as string;
-    const role = formData.get("role") as string;
+    // No picker when the site offers one role: then the server's default.
+    const role = (formData.get("role") as string | null) || undefined;
+    const displayName = ((formData.get("displayName") as string | null) ?? "").trim() || undefined;
 
-    if (!email || !name) {
-      this.showError("Email and name are required");
+    if (!email) {
+      this.showError("Your email address is needed");
       return;
     }
 
@@ -220,7 +225,9 @@ export class AuthRegister extends LitElement {
 
     try {
       // 1. Get Options
-      const optRes = await api.auth.passkey.register.options.$post({ json: { email } });
+      const optRes = await api.auth.passkey.register.options.$post({
+        json: { email, displayName },
+      });
       if (optRes.status === 409) throw new Error("Email already registered.");
       if (!optRes.ok) throw new Error(await getErrorMessage(optRes));
 
@@ -231,14 +238,17 @@ export class AuthRegister extends LitElement {
 
       // 3. Verify
       const verRes = await api.auth.passkey.register.verify.$post({
-        json: { email, role, response: attResp, challengeId: options.challengeId },
+        json: { email, displayName, role, response: attResp, challengeId: options.challengeId },
       });
 
       if (!verRes.ok) throw new Error(await getErrorMessage(verRes));
       redirectWithToast("/", "Passkey registered successfully!", "Congrats!", "success");
     } catch (error: any) {
       if (error.name === "NotAllowedError") {
-        this.showError("Passkey registration was cancelled");
+        // The browser says the same for cancelled, timed out and refused.
+        this.showError("No passkey was created. Try again, or sign up another way.");
+      } else if (error.name === "InvalidStateError") {
+        this.showError("This device already has a passkey for this site. Sign in instead.");
       } else {
         this.showError(error.message);
       }

@@ -6,7 +6,14 @@ import { eq } from "drizzle-orm";
 import * as OTPAuth from "otpauth";
 
 import { Auth } from "../worker/services/auth.service";
-import { users, verificationCodes } from "../worker/schema/auth.schema";
+import {
+  credentials,
+  registerPasskeyVerifySchema,
+  registerUserSchema,
+  users,
+  verificationCodes,
+} from "../worker/schema/auth.schema";
+import { firstIssue } from "../worker/lib/validator";
 import { sessions } from "../worker/schema/session.schema";
 import { userRoles } from "../worker/schema/roles.schema";
 import { hashPassword } from "../worker/lib/crypto";
@@ -83,6 +90,8 @@ const inContext = async <T>(
     env?: Record<string, unknown>;
     config?: AuthConfig;
     headers?: Record<string, string>;
+    /** A KV that remembers, for flows that store a challenge and read it back. */
+    kv?: any;
   } = {},
 ) => {
   const app = new Hono();
@@ -90,7 +99,13 @@ const inContext = async <T>(
   let error: unknown;
 
   app.all("*", async (c) => {
-    const auth = new Auth(c, db, kvStub(), opts.config ?? createAuthConfig(), () => true);
+    const auth = new Auth(
+      c,
+      db,
+      opts.kv ?? kvStub(),
+      opts.config ?? createAuthConfig(),
+      () => true,
+    );
     try {
       value = await body(auth, c);
     } catch (e) {
@@ -993,5 +1008,142 @@ describe("password reset", () => {
     // Unlike a password change, a reset spares nothing: the person resetting
     // may not be the person signed in, and that is usually the point.
     expect(((await inContext((a) => a.validateSession(open.token))).value as any).user).toBeNull();
+  });
+});
+
+// ==========================================
+// PASSKEYS AND SIGN-UP INPUT
+// ==========================================
+
+const memoryKv = () => {
+  const store = new Map<string, string>();
+  return {
+    put: async (k: string, v: string) => void store.set(k, v),
+    get: async (k: string) => store.get(k) ?? null,
+    delete: async (k: string) => void store.delete(k),
+  } as any;
+};
+
+const PASSKEY_ENV = { RP_ID: "app.test", RP_NAME: "Test", ORIGIN: "https://app.test" };
+const PASSKEY_FAILED = /Could not sign in with a passkey/;
+
+describe("passkeys", () => {
+  it("never signs one account in with another account's passkey", async () => {
+    const victim = await seedUser({ email: "victim@example.com", username: "victim" });
+    const attacker = await seedUser({ email: "attacker@example.com", username: "attacker" });
+    // The attacker's own, genuine passkey.
+    await db.insert(credentials).values({
+      userId: attacker.id,
+      credentialId: "attackers-own-passkey",
+      publicKey: "AAAA",
+      counter: 0,
+    });
+    const kv = memoryKv();
+    const { error, res } = await inContext(
+      async (auth) => {
+        const challengeId = await auth.setChallenge("a-challenge");
+        return auth.verifyPasskeyLogin(
+          "victim@example.com",
+          { id: "attackers-own-passkey", rawId: "attackers-own-passkey" } as any,
+          challengeId,
+        );
+      },
+      { kv, env: PASSKEY_ENV },
+    );
+    expect((error as Error)?.message).toMatch(PASSKEY_FAILED);
+    expect(res.headers.get("set-cookie") ?? "").not.toContain("auth_token");
+    expect(await db.select().from(sessions).where(eq(sessions.userId, victim.id))).toHaveLength(0);
+  });
+
+  it("answers the same for an unknown email, an account with no passkey, and a deactivated one", async () => {
+    await seedUser({ email: "nopasskey@example.com", username: "nopasskey" });
+    const off = await seedUser({ email: "off@example.com", username: "off" });
+    await db.update(users).set({ isActive: false }).where(eq(users.id, off.id));
+    await db.insert(credentials).values({
+      userId: off.id,
+      credentialId: "offs-passkey",
+      publicKey: "AAAA",
+      counter: 0,
+    });
+    for (const email of ["nobody@example.com", "nopasskey@example.com", "off@example.com"]) {
+      const { error } = await inContext((auth) => auth.generatePasskeyLoginOptions(email), {
+        env: PASSKEY_ENV,
+      });
+      expect((error as Error)?.message, email).toMatch(PASSKEY_FAILED);
+    }
+  });
+
+  it("treats a passkey sign-up's email case-insensitively, like every other method", async () => {
+    await seedUser({ email: "member@example.com" });
+    const { error } = await inContext(
+      (auth) => auth.generatePasskeyRegistrationOptions("Member@Example.COM", "Mem"),
+      { env: PASSKEY_ENV },
+    );
+    expect((error as Error)?.message).toMatch(/already registered/);
+  });
+
+  it("puts the name on the passkey the phone shows, falling back to the email", async () => {
+    const { value } = await inContext(
+      (auth) => auth.generatePasskeyRegistrationOptions("New@Example.com", "Pat Key"),
+      { env: PASSKEY_ENV },
+    );
+    expect(value!.options.user.displayName).toBe("Pat Key");
+    expect(value!.options.user.name).toBe("new@example.com");
+    const { value: unnamed } = await inContext(
+      (auth) => auth.generatePasskeyRegistrationOptions("other@example.com"),
+      { env: PASSKEY_ENV },
+    );
+    expect(unnamed!.options.user.displayName).toBe("other@example.com");
+  });
+});
+
+describe("sign-up input", () => {
+  it("takes a missing role (null, when there is no picker) as the default", () => {
+    for (const role of [null, undefined, ""]) {
+      const r = registerUserSchema.safeParse({
+        email: "a@example.com",
+        password: "x".repeat(12),
+        role,
+      });
+      expect(r.success, String(role)).toBe(true);
+      if (r.success) expect(r.data.role).toBeUndefined();
+    }
+    const pk = registerPasskeyVerifySchema.shape.role.safeParse(null);
+    expect(pk.success).toBe(true);
+  });
+
+  it("asks for the name the same way on every method: optional, trimmed, blank means none", () => {
+    const parse = (displayName: unknown) =>
+      registerUserSchema.parse({ email: "a@example.com", password: "x".repeat(12), displayName });
+    expect(parse("  Pat  ").displayName).toBe("Pat");
+    expect(parse("   ").displayName).toBeUndefined();
+    expect(parse(undefined).displayName).toBeUndefined();
+    expect(
+      registerUserSchema.safeParse({ email: "a@example.com", displayName: "x".repeat(51) }).success,
+    ).toBe(false);
+  });
+
+  it("lets a sign-up set only its own details, never the server's", () => {
+    const r = registerUserSchema.parse({
+      email: "a@example.com",
+      password: "x".repeat(12),
+      isActive: false,
+      emailVerified: true,
+      failedLoginAttempts: -5,
+      passwordHash: "chosen-by-caller",
+    } as any);
+    for (const key of ["isActive", "emailVerified", "failedLoginAttempts", "passwordHash"]) {
+      expect(r, key).not.toHaveProperty(key);
+    }
+  });
+
+  it("explains a refused request in a sentence, never an object", () => {
+    const r = registerPasskeyVerifySchema.safeParse({ email: "a@example.com", challengeId: "" });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      const message = firstIssue(r.error as any);
+      expect(typeof message).toBe("string");
+      expect(message).not.toMatch(/object|\[/i);
+    }
   });
 });
