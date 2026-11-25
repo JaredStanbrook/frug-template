@@ -10,28 +10,7 @@ Sites built from the template read these sections when they upgrade, so write
 each one for a site owner: what changed, and anything they must do by hand.
 See `docs/template-versions.md`.
 
-## [0.4.0] - 2026-11-25
-
-### Pages open on their content
-
-The template's home page was a hero: a badge, a big heading, a tagline, two
-buttons and an illustration, all in front of the content. Sites built from
-it copied that shape onto every main page. Now the first thing under the nav
-is the content itself.
-
-- The brief asks for **the one thing**: the single most important content on
-  the site, what a visitor came for (`docs/brief-prompt.md`,
-  `docs/brief-template.md`). The new-site steps ask for it before building
-  and open the home page on it.
-- The frugal skill gains "Pages open on their content": no hero heading,
-  blurb and call-to-action button before the content; a page's title names
-  it in a few words; the nav carries the wayfinding.
-- `worker/views/pages/Home.tsx` is a one-line title and the feature panel.
-  The badge, tagline, sign-in buttons (the nav has them) and orbit
-  illustration are gone.
-
-**By hand:** nothing is required. If your home page or other main pages
-open on a hero, consider replacing it with the content it points to.
+## [0.5.0] - 2026-11-25
 
 ### Cookie consent
 
@@ -70,14 +49,38 @@ journey.
   when the account is deleted).
 - `ANALYTICS_RETENTION_DAYS` (optional var, default 395) prunes old rows.
 
-**By hand:** after upgrading, run `npm run gen` to make your own migration
-for the new `analytics_event` table. If you publish a privacy notice, say that
-signed-in visitors' page views are linked to their account.
+**By hand:**
 
-**By hand:** add `COOKIE_CATEGORIES` to your `wrangler.jsonc` vars with only
-the categories you use (`""` if you set no optional cookies), list any
-cookies of your own in `cookies.config.ts`, and gate their scripts with
-`allows`. If you have a privacy notice, link it from the `/cookies` page.
+- Run `npm run gen` to make your own migration for `analytics_event`.
+- Add `COOKIE_CATEGORIES` to your `wrangler.jsonc` vars with only the
+  categories you use (`""` if you set no optional cookies), list any cookies
+  of your own in `cookies.config.ts`, and gate their scripts with `allows`.
+- Add Analytics to your admin nav if you replaced `NavBar.tsx`.
+- If you have a privacy notice, link it from `/cookies`, and say there that
+  signed-in visitors' page views are linked to their account.
+
+## [0.4.0] - 2026-11-25
+
+### Pages open on their content
+
+The template's home page was a hero: a badge, a big heading, a tagline, two
+buttons and an illustration, all in front of the content. Sites built from
+it copied that shape onto every main page. Now the first thing under the nav
+is the content itself.
+
+- The brief asks for **the one thing**: the single most important content on
+  the site, what a visitor came for (`docs/brief-prompt.md`,
+  `docs/brief-template.md`). The new-site steps ask for it before building
+  and open the home page on it.
+- The frugal skill gains "Pages open on their content": no hero heading,
+  blurb and call-to-action button before the content; a page's title names
+  it in a few words; the nav carries the wayfinding.
+- `worker/views/pages/Home.tsx` is a one-line title and the feature panel.
+  The badge, tagline, sign-in buttons (the nav has them) and orbit
+  illustration are gone.
+
+**By hand:** nothing is required. If your home page or other main pages
+open on a hero, consider replacing it with the content it points to.
 
 ## [0.3.0] - 2026-11-15
 
