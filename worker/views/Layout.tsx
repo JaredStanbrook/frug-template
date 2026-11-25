@@ -4,6 +4,9 @@ import { type PropsUser } from "@server/schema/auth.schema";
 import type { AppConfig } from "@server/config/app.config";
 import { jsonLdScript, type ResolvedMeta } from "@server/lib/seo";
 import { NavBar } from "./components/NavBar";
+import { CookieConsent } from "./components/CookieConsent";
+import type { OptionalCategory } from "@server/config/cookies.config";
+import { CONSENT_SCRIPT, type Consent } from "@server/lib/consent";
 
 interface LayoutProps {
   meta: ResolvedMeta;
@@ -12,6 +15,8 @@ interface LayoutProps {
   user?: PropsUser | null;
   currentPath?: string;
   headExtra?: Child;
+  /** The optional cookie categories the site offers, and the visitor's choice. */
+  cookies?: { offered: OptionalCategory[]; consent: Consent | null };
   /**
    * Appended to the stylesheet URL so each deploy gets a new one. Its file
    * name is fixed (`static/main.css`), so without it the stylesheet could not
@@ -106,6 +111,10 @@ export const Layout: FC<LayoutProps> = (props) => {
           type="module"
           src="${isProd ? "/static/client.js" : "/worker/components/main.ts"}"
         ></script>
+        <!-- Before any other script: cookieConsent.allows() (worker/lib/consent.ts). -->
+        <script>
+          ${raw(CONSENT_SCRIPT)};
+        </script>
         ${props.headExtra}
       </head>
       <body class="bg-background text-foreground antialiased min-h-screen font-sans flex flex-col">
@@ -139,7 +148,6 @@ export const Layout: FC<LayoutProps> = (props) => {
         <div id="modal-container"></div>
 
         <app-toaster></app-toaster>
-
         ${
           props.meta.bare
             ? ""
@@ -154,9 +162,16 @@ export const Layout: FC<LayoutProps> = (props) => {
                   <p class="text-center text-sm leading-loose text-muted-foreground md:text-right">
                     ${props.app.tagline || props.app.name}
                   </p>
+                  <a
+                    href="/cookies"
+                    ${props.cookies?.offered.length ? raw("data-cookie-preferences") : ""}
+                    class="inline-flex min-h-11 items-center text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >${props.cookies?.offered.length ? "Cookie preferences" : "Cookies"}</a
+                  >
                 </div>
               </footer>`
         }
+        ${props.meta.bare || !props.cookies ? "" : CookieConsent(props.cookies)}
       </body>
     </html>
   `;

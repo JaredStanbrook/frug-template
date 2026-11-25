@@ -136,6 +136,14 @@
     // An opened link lands on the first one.
     "ACCESS_GATE_PATHS": "",
 
+    // --- COOKIES ---
+    // The optional cookie categories this site uses, comma separated, from
+    // "functional,performance,targeting". Visitors get a banner to accept or
+    // reject them, and switches for each. List only what the site really
+    // sets (worker/config/cookies.config.ts lists every cookie). Empty: only
+    // strictly necessary cookies, which need no consent, and no banner.
+    "COOKIE_CATEGORIES": "functional,performance,targeting",
+
     // --- BRANDING ---
     // CHANGE_ME — how the site names itself in the title, nav and footer.
     "APP_NAME": "Frug",

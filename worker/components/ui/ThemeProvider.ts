@@ -48,7 +48,8 @@ export class ThemeProvider extends LitElement {
 
   public setTheme(theme: Theme) {
     this.theme = theme;
-    localStorage.setItem(this.storageKey, theme);
+    // Remembering it is functional storage: only with the visitor's consent.
+    if (window.cookieConsent?.allows("functional")) localStorage.setItem(this.storageKey, theme);
     this.applyThemeToDocument(theme);
   }
 

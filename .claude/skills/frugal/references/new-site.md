@@ -160,6 +160,9 @@ engines and link previews (`references/seo.md`):
   `"APP_OG_IMAGE": "/og.png"`.
 - Replace the example links on `views/pages/NotFound.tsx` with the site's main
   pages.
+- Set `COOKIE_CATEGORIES` to the optional cookie categories the site really
+  uses (`""` for none, which hides the banner), and list each of its own
+  cookies in `worker/config/cookies.config.ts`.
 
 ## Step 5 — Strip the scaffolding
 

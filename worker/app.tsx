@@ -11,6 +11,7 @@ import { webAuth } from "./routes/web/auth";
 import { logsRoute } from "./routes/admin/logs";
 import { accessAdminRoute } from "./routes/admin/access.tsx";
 import { accessRoute } from "./routes/access.tsx";
+import { cookiesRoute } from "./routes/cookies";
 import { accessGate } from "./middleware/access-gate.middleware.ts";
 import { notesRoute } from "./routes/notes.tsx";
 import { seoRoute } from "./routes/seo";
@@ -48,6 +49,9 @@ const app = new Hono<AppEnv>()
 
   // Invitation links (/a/:token) and the page the gate sends everyone else to.
   .route("/", accessRoute)
+
+  // The cookie policy, and where the banner saves a visitor's choice.
+  .route("/", cookiesRoute)
 
   .route("/admin", admin)
 
