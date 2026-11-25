@@ -130,7 +130,7 @@ export const CookieConsent: FC<{ offered: OptionalCategory[]; consent: Consent |
       {consent ? null : (
         // Room at the foot of the page, so the fixed banner covers nothing
         // that cannot be scrolled clear of it.
-        <div class="h-56 md:h-24" aria-hidden="true"></div>
+        <div class="h-96 md:h-40" aria-hidden="true"></div>
       )}
       {consent ? null : (
         <section
@@ -138,13 +138,19 @@ export const CookieConsent: FC<{ offered: OptionalCategory[]; consent: Consent |
           aria-label="Cookies"
         >
           <div class="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:gap-6">
-            <p class="text-sm leading-relaxed md:flex-1">
-              We use cookies to keep this site working and, if you agree, to remember your settings
-              and see how the site is used.{" "}
-              <a href="/cookies" class="underline underline-offset-4 hover:text-foreground">
-                Cookie policy
-              </a>
-            </p>
+            <div class="text-sm leading-relaxed md:flex-1">
+              <h2 class="font-semibold">Our site uses cookies</h2>
+              <p class="mt-1 text-muted-foreground">
+                Like most websites, we use cookies to make our site work the way you expect it to,
+                improve your experience on our site, analyse site usage, and assist in our marketing
+                efforts. By choosing “Accept all cookies”, you agree to the storing of all
+                categories of cookies on your device. If you wish to accept or reject some
+                categories of cookies, please click “Cookie preferences”.{" "}
+                <a href="/cookies" class="underline underline-offset-4 hover:text-foreground">
+                  Cookie policy
+                </a>
+              </p>
+            </div>
             <form {...formAttrs} class="flex flex-wrap items-center gap-2">
               <a href="/cookies" data-cookie-preferences class={outline}>
                 Cookie preferences
