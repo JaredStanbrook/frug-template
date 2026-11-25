@@ -12,6 +12,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../types";
 import { offeredCategories, OPTIONAL_CATEGORIES } from "../config/cookies.config";
 import { readConsent, writeConsent, type Consent } from "../lib/consent";
+import { clearAnalyticsCookies } from "../services/analytics.service";
 import { CookieConsent, CookiePreferencesForm } from "../views/components/CookieConsent";
 
 export const cookiesRoute = new Hono<AppEnv>();
@@ -45,6 +46,8 @@ cookiesRoute.post("/cookies", async (c) => {
     ]),
   ) as Consent;
   writeConsent(c, consent);
+  // Withdrawn: the analytics ids go now, not when they expire.
+  if (!consent.performance) clearAnalyticsCookies(c);
 
   if (c.req.header("HX-Request")) {
     return c.html(<CookieConsent offered={[...offered]} consent={consent} />);

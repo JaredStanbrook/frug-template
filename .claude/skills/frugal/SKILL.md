@@ -491,6 +491,19 @@ dialog and the `/cookies` page are built from that list.
 - **Remembered theme is functional.** The theme toggle saves the choice only
   while functional cookies are allowed, and withdrawing them clears it.
 
+**First-party analytics are built in, as the performance category.** Once a
+visitor allows performance cookies, `worker/components/analytics.ts` reports
+each page (path, source, device, browser, load time, time in view) and each
+form sent (where from, where to; never its contents) to `/api/analytics`,
+which re-checks consent and stores rows in `analytics_event` (D1, nothing
+leaves the site). Visitors get `_fa_vid` (a year) and `_fa_sid` (30 minutes);
+a signed-in visitor's rows carry their user id. `/admin/analytics` shows the
+totals, pages, slow pages, sources, devices, the way to each form and each
+signed-in visitor's journey. Rows older than `ANALYTICS_RETENTION_DAYS`
+(default 395) are pruned. Withdrawing consent deletes the two cookies. Bots
+and `/admin` pages are not counted. Linking views to accounts is personal
+data: say so in the site's privacy notice.
+
 Never load analytics or an advertising tag before `allows` says yes, and never
 add a non-necessary cookie without listing it: the list is what the visitor
 is shown, so an unlisted cookie is one they were not told about.

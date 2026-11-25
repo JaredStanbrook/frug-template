@@ -52,6 +52,28 @@ everything (and works without JavaScript).
 - The theme toggle now remembers the theme only while functional cookies
   are allowed.
 
+### First-party analytics (performance cookies)
+
+With performance cookies allowed, every page view and form send is recorded
+in the site's own D1, and `/admin/analytics` (admins, in the nav) reports it:
+page views, visitors, visits, signed-in visitors, time on each page, load
+speed, slowest pages, where visitors came from, devices, browsers,
+countries, the pages seen before each form, and each signed-in visitor's
+journey.
+
+- New table `analytics_event` (migration `0004_analytics.sql`); cookies
+  `_fa_vid` (a year) and `_fa_sid` (30 minutes), listed under performance.
+- Never stored: IP address, full user-agent, query strings, form contents.
+  Bots and `/admin` pages are skipped. Consent is checked on the server for
+  every beacon; withdrawing it deletes both cookies.
+- A signed-in visitor's views carry their user id (dropped, not deleted,
+  when the account is deleted).
+- `ANALYTICS_RETENTION_DAYS` (optional var, default 395) prunes old rows.
+
+**By hand:** after upgrading, run `npm run gen` to make your own migration
+for the new `analytics_event` table. If you publish a privacy notice, say that
+signed-in visitors' page views are linked to their account.
+
 **By hand:** add `COOKIE_CATEGORIES` to your `wrangler.jsonc` vars with only
 the categories you use (`""` if you set no optional cookies), list any
 cookies of your own in `cookies.config.ts`, and gate their scripts with

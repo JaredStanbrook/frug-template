@@ -7,8 +7,10 @@ import { ProfilePage } from "./views/pages/Profile";
 import type { SafeUser } from "./schema/auth.schema.ts";
 
 import { apiAuth } from "./routes/api/auth";
+import { analyticsApi } from "./routes/api/analytics";
 import { webAuth } from "./routes/web/auth";
 import { logsRoute } from "./routes/admin/logs";
+import { analyticsAdminRoute } from "./routes/admin/analytics";
 import { accessAdminRoute } from "./routes/admin/access.tsx";
 import { accessRoute } from "./routes/access.tsx";
 import { cookiesRoute } from "./routes/cookies";
@@ -27,6 +29,7 @@ import type { AppEnv } from "./types";
 const admin = new Hono<AppEnv>();
 admin.use("*", requireRole("admin"));
 admin.route("/logs", logsRoute);
+admin.route("/analytics", analyticsAdminRoute);
 admin.route("/access", accessAdminRoute);
 
 // ==========================================
@@ -79,7 +82,8 @@ const app = new Hono<AppEnv>()
   // 3. JSON API
   // ==========================================
   .basePath("/api")
-  .route("/auth", apiAuth);
+  .route("/auth", apiAuth)
+  .route("/analytics", analyticsApi);
 
 export type AppType = typeof app;
 export default app;

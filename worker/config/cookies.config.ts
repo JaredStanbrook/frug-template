@@ -27,7 +27,7 @@ export const CATEGORY_INFO: Record<CookieCategory, { label: string; description:
   performance: {
     label: "Performance",
     description:
-      "Count visits and find slow pages, so the site can be improved. Nothing names you.",
+      "Help us learn how the site is used, to improve it: pages visited, time spent on each, how fast they load, your type of browser and device, and the pages seen before a form is sent. Kept on this site's own servers; if you are signed in, linked to your account.",
   },
   targeting: {
     label: "Targeting",
@@ -70,6 +70,18 @@ export const COOKIES: CookieEntry[] = [
     category: "necessary",
     purpose: "Remembers the cookie choices you make here.",
     duration: "6 months",
+  },
+  {
+    name: "_fa_vid",
+    category: "performance",
+    purpose: "A random id that tells this site's analytics your visits apart from other people's.",
+    duration: "1 year",
+  },
+  {
+    name: "_fa_sid",
+    category: "performance",
+    purpose: "Groups the pages of one visit, so the site can see the way people take through it.",
+    duration: "30 minutes after your last page",
   },
   {
     name: "vite-ui-theme",

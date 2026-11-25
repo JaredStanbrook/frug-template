@@ -10,6 +10,7 @@ import { users, credentials, verificationCodes, authLogs } from "../schema/auth.
 import { userRoles, rolePermissions, userPermissions } from "../schema/roles.schema";
 import { note } from "../schema/note.schema";
 import { accessLink } from "../schema/access.schema";
+import { analyticsEvent } from "../schema/analytics.schema";
 import { requireRole } from "../middleware/guard.middleware";
 import { AppEnv } from "@server/types";
 
@@ -51,6 +52,7 @@ devRouter.get("/", async (c) => {
     // Feature tables — add yours here.
     fetchTableData(db, note, "note"),
     fetchTableData(db, accessLink, "access_link"),
+    fetchTableData(db, analyticsEvent, "analytics_event"),
   ]);
 
   // Build HTML response

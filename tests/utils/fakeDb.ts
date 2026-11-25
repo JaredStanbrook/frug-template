@@ -56,6 +56,7 @@ const createQuery = (data: MockData, fields?: Record<string, any>) => {
     innerJoin: () => query,
     leftJoin: () => query,
     groupBy: () => query,
+    having: () => query,
     orderBy: () => query,
     limit: () => query,
     offset: () => query,

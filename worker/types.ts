@@ -55,6 +55,8 @@ export type Vars = {
    * See worker/config/cookies.config.ts.
    */
   COOKIE_CATEGORIES?: string;
+  /** Days analytics rows are kept. Unset: 395 (13 months). */
+  ANALYTICS_RETENTION_DAYS?: string;
 };
 
 /**

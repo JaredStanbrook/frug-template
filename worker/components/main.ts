@@ -12,6 +12,8 @@ import "./ui/AppToaster";
 import "./ui/ThemeProvider";
 import "./ui/ThemeToggle";
 import "./ui/NavUserMenu";
+// First-party analytics: idle until the visitor allows performance cookies.
+import "./analytics";
 
 /**
  * Components only some pages use — sign-in, registration, the profile —
