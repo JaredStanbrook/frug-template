@@ -13,6 +13,7 @@ import { firstIssue } from "@server/lib/validator";
 import { logAndSanitise } from "@server/lib/errors";
 import { authRateLimit } from "@server/middleware/rate-limit.middleware";
 import { emailFlowsAvailable } from "@server/services/email.service";
+import { safeNextPath, withNext } from "@server/lib/next-path";
 import {
   EmailLinkPage,
   ForgotPasswordCard,
@@ -39,12 +40,14 @@ webAuth.get("/", (c) => {
 
 webAuth.get("/register", async (c) => {
   const { auth, authConfig } = c.var;
-  if (auth.user) return c.redirect("/");
+  // `?next=`: the page that sent them here, to return to once they are in.
+  const next = safeNextPath(c.req.query("next"));
+  if (auth.user) return c.redirect(next);
 
   // With SINGLE_ACCOUNT on, the form only exists until the owner has signed
   // up. The API refuses regardless; this just avoids offering a form that
   // cannot succeed.
-  if (!(await auth.isRegistrationOpen())) return c.redirect("/login");
+  if (!(await auth.isRegistrationOpen())) return c.redirect(withNext("/login", next));
 
   const props = {
     methods: Array.from(authConfig.methods),
@@ -58,6 +61,7 @@ webAuth.get("/register", async (c) => {
     // PASSWORD_MIN_LENGTH said, so the only way to learn the real rule was to
     // be rejected by it.
     passwordPolicy: authConfig.password,
+    next,
   };
   return c.render(<Register {...props} />, {
     title: "Create Account",
@@ -66,12 +70,14 @@ webAuth.get("/register", async (c) => {
 
 webAuth.get("/login", async (c) => {
   const { auth, authConfig } = c.var;
-  if (auth.user) return c.redirect("/");
+  const next = safeNextPath(c.req.query("next"));
+  if (auth.user) return c.redirect(next);
 
   const props = {
     methods: Array.from(authConfig.methods),
     registrationOpen: await auth.isRegistrationOpen(),
     passwordReset: emailFlowsAvailable(c.env),
+    next,
   };
   return c.render(<Login {...props} />, {
     title: "Sign In",

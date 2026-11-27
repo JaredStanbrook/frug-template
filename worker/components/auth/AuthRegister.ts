@@ -1,6 +1,6 @@
 import { LitElement, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { api, getErrorMessage, redirectWithToast } from "../lib/utils";
+import { api, getErrorMessage, nextPath, redirectWithToast } from "../lib/utils";
 import { startRegistration } from "@simplewebauthn/browser";
 
 @customElement("auth-register")
@@ -168,7 +168,7 @@ export class AuthRegister extends LitElement {
     if (requiresVerification) {
       redirectWithToast("/verify-email", message, "Confirm your email to carry on.", "success");
     } else {
-      redirectWithToast("/", message, description, "success");
+      redirectWithToast(nextPath(), message, description, "success");
     }
   }
 

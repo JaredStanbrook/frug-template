@@ -1,4 +1,5 @@
 import type { FC } from "hono/jsx";
+import { withNext } from "@server/lib/next-path";
 import {
   AUTH_BUTTON,
   AUTH_INPUT,
@@ -18,10 +19,12 @@ export interface RegisterProps {
   defaultRole: string;
   csrfToken?: string;
   passwordPolicy?: PasswordPolicy;
+  /** Where to return after registering; carried to the sign-in link too. */
+  next?: string;
 }
 
 export const Register: FC<RegisterProps> = (props) => {
-  const { methods, roles, defaultRole, csrfToken, passwordPolicy } = props;
+  const { methods, roles, defaultRole, csrfToken, passwordPolicy, next = "/" } = props;
   const minLength = passwordPolicy?.minLength ?? 8;
   const policyHint = describePasswordPolicy(passwordPolicy);
 
@@ -261,7 +264,10 @@ export const Register: FC<RegisterProps> = (props) => {
 
         <p class="px-8 mt-6 text-center text-sm text-muted-foreground">
           Already have an account?{" "}
-          <a href="/login" class="underline underline-offset-4 hover:text-primary font-medium">
+          <a
+            href={withNext("/login", next)}
+            class="underline underline-offset-4 hover:text-primary font-medium"
+          >
             Sign In
           </a>
         </p>

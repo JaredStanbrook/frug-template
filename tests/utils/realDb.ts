@@ -21,7 +21,7 @@ import { drizzle } from "drizzle-orm/sqlite-proxy";
 
 const MIGRATIONS_DIR = join(import.meta.dirname, "..", "..", "drizzle");
 
-/** Drizzle sends one statement at a time; `columns()` gives us value order. */
+/** Drizzle sends one statement at a time. */
 const run = (sqlite: DatabaseSync, sql: string, params: any[], method: string) => {
   const stmt = sqlite.prepare(sql);
 
@@ -30,18 +30,20 @@ const run = (sqlite: DatabaseSync, sql: string, params: any[], method: string) =
     return { rows: [] };
   }
 
-  const order = stmt.columns().map((c) => c.name);
-  const toValues = (row: Record<string, unknown>) => order.map((name) => row[name] ?? null);
-  const rows = stmt.all(...params) as Record<string, unknown>[];
+  // Rows as arrays, as D1 returns them to drizzle. Read as objects, a join
+  // whose tables share a column name (`id`) keeps only the last one, and the
+  // other table's field silently takes its value.
+  stmt.setReturnArrays(true);
+  const rows = stmt.all(...params) as unknown as unknown[][];
 
   // `get` wants the single row's values; everything else wants rows of values.
   // A miss has to be undefined, not []: drizzle maps a falsy result to
   // `undefined`, and an empty array is truthy, so it would hand back an object
   // with every field undefined — a "row" that is not there.
   if (method === "get") {
-    return { rows: rows[0] ? toValues(rows[0]) : (undefined as any) };
+    return { rows: rows[0] ?? (undefined as any) };
   }
-  return { rows: rows.map(toValues) };
+  return { rows };
 };
 
 export const createRealDb = () => {
