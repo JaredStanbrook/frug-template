@@ -2,6 +2,18 @@
 import { createMiddleware } from "hono/factory";
 import type { AppEnv } from "../types"; // Import your Hono Env types
 import { flashToast, htmxRedirect } from "@server/lib/htmx-helpers";
+import type { Context } from "hono";
+
+/**
+ * REQUIRE_EMAIL_VERIFICATION: signed in, but the address is not confirmed.
+ * Every guard sends such a user to /verify-email, which no guard covers, so
+ * the way to confirm (and to send the link again, or sign out) stays open.
+ */
+const mustConfirmEmail = (c: Context<AppEnv>) =>
+  !!c.var.authConfig?.security?.requireEmailVerification && !c.var.auth.user?.emailVerified;
+
+const toConfirmEmail = (c: Context<AppEnv>) =>
+  c.req.header("HX-Request") ? htmxRedirect(c, "/verify-email") : c.redirect("/verify-email");
 
 export const requireUser = createMiddleware<AppEnv>(async (c, next) => {
   const user = c.var.auth.user;
@@ -18,6 +30,7 @@ export const requireUser = createMiddleware<AppEnv>(async (c, next) => {
     flashToast(c, "Please sign in to continue", { type: "warning" });
     return c.redirect("/login");
   }
+  if (mustConfirmEmail(c)) return toConfirmEmail(c);
 
   await next();
 });
@@ -38,6 +51,7 @@ export const requireRole = (...allowedRoles: string[]) =>
       flashToast(c, "Please sign in to continue", { type: "warning" });
       return c.redirect("/login");
     }
+    if (mustConfirmEmail(c)) return toConfirmEmail(c);
 
     // 2. Authorization Check (Role)
     // We check if the user has ANY of the allowed roles
@@ -83,6 +97,7 @@ export const requirePermission = (requiredPermission: string) =>
       flashToast(c, "Please sign in to continue", { type: "warning" });
       return c.redirect("/login");
     }
+    if (mustConfirmEmail(c)) return toConfirmEmail(c);
 
     // 2. Authorization Check (Permission)
     // Your SafeUser object already has the flat array of permissions calculated

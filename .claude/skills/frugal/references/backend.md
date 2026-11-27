@@ -187,6 +187,33 @@ Brute force has two layers: `RATE_LIMITER` caps auth requests per IP at the
 edge, and `MAX_FAILED_LOGIN_ATTEMPTS` locks the individual account. The second
 matters more — an attacker can rotate IPs but not the target account.
 
+### Email: password reset and confirming an address
+
+Mail goes through Cloudflare Email Service: the `EMAIL` `send_email` binding
+plus `EMAIL_FROM`, both read by `worker/services/email.service.ts`.
+`sendEmail(env, message)` never throws; it resolves `false` when the message
+could not go, and logs why. On localhost it prints the message instead, links
+included. Never anywhere else: a reset link is a password, and Workers Logs
+keeps what is logged. `emailFlowsAvailable(env)` says whether a flow that needs
+email can work, and the pages use it to hide or explain themselves.
+
+The links (`/reset-password?token=`, `/verify-email?token=`) are one-time
+tokens in `verification_codes`, stored hashed, one live per account and type,
+issued at most once a minute, spent by a `DELETE ... RETURNING` so a link
+works once. They point at `ORIGIN`, never the request's Host header.
+`/forgot-password` answers the same for every address and does its work in
+`auth.afterResponse`, so neither the words nor the timing say whether an
+account exists. Opening a confirmation link shows a button rather than
+confirming, so a mail scanner's visit confirms nothing.
+
+`REQUIRE_EMAIL_VERIFICATION` is enforced in the three guards: an unconfirmed
+user is sent to `/verify-email`, which no guard covers. A new route that
+should wait for a confirmed address needs nothing more than a guard.
+
+To send another kind of email, build it with `linkEmail` (or any
+`{ to, subject, text, html }`) and call `sendEmail(c.env, ...)`, after the
+response where the user does not need the result.
+
 ## Authorisation
 
 Two layers answering different questions.
@@ -242,7 +269,8 @@ Units: `SESSION_DURATION` and `LOCKOUT_DURATION` are **milliseconds**;
 `JWT_EXPIRY` is **seconds**. Nothing validates a plausible-looking number.
 
 `validateAuthConfig()` catches structural mistakes — a default role missing
-from `ROLES_AVAILABLE`, TOTP enabled with no issuer.
+from `ROLES_AVAILABLE`, TOTP enabled with no issuer,
+`REQUIRE_EMAIL_VERIFICATION` on with no way to send the email.
 
 ## Errors
 

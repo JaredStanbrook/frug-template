@@ -15,10 +15,12 @@ export interface LoginProps {
   csrfToken?: string;
   /** Hide the sign-up link when nobody could use it (SINGLE_ACCOUNT). */
   registrationOpen?: boolean;
+  /** Offer "Forgot password?" only where a reset link can be sent. */
+  passwordReset?: boolean;
 }
 
 export const Login: FC<LoginProps> = (props) => {
-  const { methods, csrfToken, registrationOpen = true } = props;
+  const { methods, csrfToken, registrationOpen = true, passwordReset = true } = props;
 
   const hasPassword = methods.includes("password");
   const hasPin = methods.includes("pin");
@@ -89,12 +91,14 @@ export const Login: FC<LoginProps> = (props) => {
                   id="password"
                   label="Password"
                   extra={
-                    <a
-                      href="/forgot-password"
-                      class="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
-                    >
-                      Forgot password?
-                    </a>
+                    passwordReset && (
+                      <a
+                        href="/forgot-password"
+                        class="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+                      >
+                        Forgot password?
+                      </a>
+                    )
                   }
                 >
                   <input

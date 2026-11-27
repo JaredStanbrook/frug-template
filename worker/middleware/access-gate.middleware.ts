@@ -17,7 +17,17 @@ import {
  * path here only if a locked-out visitor must reach it.
  */
 const OPEN_PREFIXES = ["/api/", "/static/", "/fonts/", "/web/auth/", "/a/"];
-const OPEN_PATHS = ["/gone", "/login", "/register", "/favicon.svg"];
+const OPEN_PATHS = [
+  "/gone",
+  "/login",
+  "/register",
+  "/favicon.svg",
+  // Emailed links, which may be opened in a browser the gate has never seen.
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+  "/verify-email/resend",
+];
 
 /**
  * Lock the site to invited visitors while ACCESS_GATE is "session" or "link".

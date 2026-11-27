@@ -353,6 +353,16 @@ Properties the auth service holds, worth not undoing. All are covered by
 - **The password policy is enforced in one place** (`assertPasswordPolicy`) and
   the register form is told the same numbers, so the form cannot advertise a
   rule the server does not apply.
+- **Emailed links are hashed, single-use and pointed at `ORIGIN`.** Reset and
+  confirmation tokens live in `verification_codes`; a new one retires the
+  old, at most one a minute per account, and `/forgot-password` answers the
+  same for every address. A reset ends every session and any lockout, and
+  still asks for the second factor. Email itself is
+  `worker/services/email.service.ts` (Cloudflare Email Service); see
+  `references/backend.md`.
+- **`REQUIRE_EMAIL_VERIFICATION` lives in the guards.** An unconfirmed user is
+  sent to `/verify-email`, which no guard covers. Never put that page, or
+  `/verify-email/resend`, behind `requireUser`: the user could never leave.
 
 Feedback: `htmxToast(c, msg)` when the response itself renders,
 `flashToast(c, msg)` when you are about to `c.redirect(...)` — it survives the

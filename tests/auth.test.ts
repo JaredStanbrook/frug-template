@@ -170,25 +170,47 @@ const legacyHash = async (password: string) => {
 };
 
 /**
- * Trigger a reset and read the code back.
- *
- * The template has no mail transport, so `requestPasswordReset` logs the code
- * — which is exactly how a developer would get at it locally, and the only
- * handle a test has on it now that the stored copy is hashed.
+ * A stand-in for the EMAIL binding that keeps what it was given, plus the
+ * env that makes the service use it. Links are read out of the messages, the
+ * one place the plain token exists once it is stored hashed.
  */
-const requestResetAndCaptureCode = async () => {
-  const logged: string[] = [];
-  const original = console.log;
-  console.log = (...args: unknown[]) => logged.push(args.join(" "));
-  try {
-    await inContext((auth) => auth.requestPasswordReset("member@example.com"));
-  } finally {
-    console.log = original;
-  }
-  const match = logged.join("\n").match(/([0-9a-f]{32})/);
-  if (!match) throw new Error("no reset code was logged");
+const mailbox = () => {
+  const sent: any[] = [];
+  const env = {
+    EMAIL: {
+      send: async (message: any) => {
+        sent.push(message);
+        return { messageId: `m${sent.length}` };
+      },
+    },
+    EMAIL_FROM: "noreply@app.test",
+    APP_NAME: "Test App",
+    ORIGIN: "https://app.test",
+  };
+  return { sent, env };
+};
+
+const tokenIn = (message: any) => {
+  const match = String(message?.text).match(/token=([0-9a-f]{32})/);
+  if (!match) throw new Error("no link in the message");
   return match[1];
 };
+
+/** Let work handed to `afterResponse` finish: tests have no `waitUntil`. */
+const settle = async () => {
+  for (let i = 0; i < 10; i++) await new Promise((r) => setTimeout(r, 0));
+};
+
+/** Ask for a reset link and read the token out of the email. */
+const requestResetAndCaptureCode = async (box = mailbox()) => {
+  await inContext((auth) => auth.requestPasswordReset("member@example.com"), { env: box.env });
+  if (box.sent.length === 0) throw new Error("no reset email was sent");
+  return tokenIn(box.sent.at(-1));
+};
+
+/** Make the newest link of each type look older than the one-a-minute cooldown. */
+const ageLinks = () =>
+  db.update(verificationCodes).set({ createdAt: new Date(Date.now() - 120_000).toISOString() });
 
 const cookieFrom = (res: Response) => res.headers.get("set-cookie") ?? "";
 
@@ -972,6 +994,65 @@ describe("password reset", () => {
     expect(row.code).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it("emails the link to the account, from EMAIL_FROM, pointed at ORIGIN", async () => {
+    await seedUser();
+    const box = mailbox();
+    // The request's Host is the sender's to choose. A link built from it would
+    // deliver the token to whichever host they named.
+    await inContext((auth) => auth.requestPasswordReset("Member@Example.com"), {
+      env: box.env,
+      url: "https://evil.test/forgot-password",
+    });
+
+    expect(box.sent).toHaveLength(1);
+    const [message] = box.sent;
+    expect(message.to).toBe("member@example.com");
+    expect(message.from).toEqual({ email: "noreply@app.test", name: "Test App" });
+    expect(message.text).toContain("https://app.test/reset-password?token=");
+    expect(message.html).toContain("https://app.test/reset-password?token=");
+    expect(message.text).not.toContain("evil.test");
+  });
+
+  it("sends nothing for an unknown or deactivated account, and says so to nobody", async () => {
+    const off = await seedUser({ email: "off@example.com", username: "off" });
+    await db.update(users).set({ isActive: false }).where(eq(users.id, off.id));
+    const box = mailbox();
+
+    for (const email of ["nobody@example.com", "off@example.com"]) {
+      const { error } = await inContext((auth) => auth.requestPasswordReset(email), {
+        env: box.env,
+      });
+      expect(error, email).toBeUndefined();
+    }
+    expect(box.sent).toHaveLength(0);
+    expect(await db.select().from(verificationCodes)).toHaveLength(0);
+  });
+
+  it("sends at most one link a minute, so the form cannot fill an inbox", async () => {
+    await seedUser();
+    const box = mailbox();
+    await requestResetAndCaptureCode(box);
+    await inContext((auth) => auth.requestPasswordReset("member@example.com"), { env: box.env });
+    expect(box.sent).toHaveLength(1);
+
+    await ageLinks();
+    await inContext((auth) => auth.requestPasswordReset("member@example.com"), { env: box.env });
+    expect(box.sent).toHaveLength(2);
+  });
+
+  it("honours only the newest link", async () => {
+    await seedUser();
+    const box = mailbox();
+    const older = await requestResetAndCaptureCode(box);
+    await ageLinks();
+    const newer = await requestResetAndCaptureCode(box);
+
+    const stale = await inContext((auth) => auth.resetPassword(older, "a-brand-new-password"));
+    expect(stale.message).toMatch(/not valid/i);
+    const fresh = await inContext((auth) => auth.resetPassword(newer, "a-brand-new-password"));
+    expect(fresh.message).toBeUndefined();
+  });
+
   it("accepts the real code once, and never again", async () => {
     const user = await seedUser();
     const code = await requestResetAndCaptureCode();
@@ -980,7 +1061,7 @@ describe("password reset", () => {
     expect(first.message).toBeUndefined();
 
     const second = await inContext((auth) => auth.resetPassword(code, "another-new-password"));
-    expect(second.message).toMatch(/invalid or expired/i);
+    expect(second.message).toMatch(/not valid/i);
 
     const { value } = await inContext((auth) =>
       auth.loginWithPassword("member@example.com", "a-brand-new-password"),
@@ -995,7 +1076,56 @@ describe("password reset", () => {
     const { message } = await inContext((auth) =>
       auth.resetPassword("f".repeat(32), "a-brand-new-password"),
     );
-    expect(message).toMatch(/invalid or expired/i);
+    expect(message).toMatch(/not valid/i);
+  });
+
+  it("refuses an expired link", async () => {
+    await seedUser();
+    const code = await requestResetAndCaptureCode();
+    await db
+      .update(verificationCodes)
+      .set({ expiresAt: new Date(Date.now() - 1000).toISOString() });
+
+    const { message } = await inContext((auth) => auth.resetPassword(code, "a-brand-new-password"));
+    expect(message).toMatch(/not valid/i);
+  });
+
+  it("keeps the link when the new password breaks the policy", async () => {
+    await seedUser();
+    const code = await requestResetAndCaptureCode();
+
+    const weak = await inContext((auth) => auth.resetPassword(code, "short"));
+    expect(weak.message).toMatch(/at least 12/);
+    // Choosing a better password should not need a second email.
+    const good = await inContext((auth) => auth.resetPassword(code, "a-brand-new-password"));
+    expect(good.message).toBeUndefined();
+  });
+
+  it("ends a lockout and confirms the email, since the link proved the mailbox", async () => {
+    const user = await seedUser({
+      failedLoginAttempts: 3,
+      lockedUntil: new Date(Date.now() + 900_000).toISOString(),
+      emailVerified: false,
+    });
+    const code = await requestResetAndCaptureCode();
+    await inContext((auth) => auth.resetPassword(code, "a-brand-new-password"));
+
+    const after = await readUser(user.id);
+    expect(after.lockedUntil).toBeNull();
+    expect(after.failedLoginAttempts).toBe(0);
+    expect(after.emailVerified).toBe(true);
+  });
+
+  it("does not skip the second factor", async () => {
+    const secret = new OTPAuth.Secret({ size: 20 }).base32;
+    await seedUser({ totpSecret: secret, totpEnabled: true });
+    const code = await requestResetAndCaptureCode();
+    await inContext((auth) => auth.resetPassword(code, "a-brand-new-password"));
+
+    const { message } = await inContext((auth) =>
+      auth.loginWithPassword("member@example.com", "a-brand-new-password"),
+    );
+    expect(message).toBe("TOTP_REQUIRED");
   });
 
   it("ends every existing session", async () => {
@@ -1008,6 +1138,83 @@ describe("password reset", () => {
     // Unlike a password change, a reset spares nothing: the person resetting
     // may not be the person signed in, and that is usually the point.
     expect(((await inContext((a) => a.validateSession(open.token))).value as any).user).toBeNull();
+  });
+});
+
+describe("email confirmation", () => {
+  it("emails a confirmation link on sign-up", async () => {
+    const box = mailbox();
+    await inContext(
+      (auth) =>
+        auth.register({ email: "New@Example.com", password: "a-long-enough-password" } as any),
+      { env: box.env },
+    );
+    await settle();
+
+    expect(box.sent).toHaveLength(1);
+    expect(box.sent[0].to).toBe("new@example.com");
+    expect(box.sent[0].text).toContain("https://app.test/verify-email?token=");
+  });
+
+  it("confirms the address the link was sent to, once", async () => {
+    const user = await seedUser({ emailVerified: false });
+    const box = mailbox();
+    const { value } = await inContext((auth) => auth.sendEmailVerification(user), { env: box.env });
+    expect(value).toBe("sent");
+    const token = tokenIn(box.sent[0]);
+
+    const first = await inContext((auth) => auth.verifyEmail(token));
+    expect(first.message).toBeUndefined();
+    expect((await readUser(user.id)).emailVerified).toBe(true);
+
+    const again = await inContext((auth) => auth.verifyEmail(token));
+    expect(again.message).toMatch(/not valid/i);
+  });
+
+  it("refuses a made-up link and confirms nothing", async () => {
+    const user = await seedUser({ emailVerified: false });
+    await inContext((auth) => auth.sendEmailVerification(user), { env: mailbox().env });
+
+    const { message } = await inContext((auth) => auth.verifyEmail("0".repeat(32)));
+    expect(message).toMatch(/not valid/i);
+    expect((await readUser(user.id)).emailVerified).toBe(false);
+  });
+
+  it("is not a reset link, nor a reset link a confirmation", async () => {
+    const user = await seedUser({ emailVerified: false });
+    const box = mailbox();
+    await inContext((auth) => auth.sendEmailVerification(user), { env: box.env });
+    const confirm = tokenIn(box.sent[0]);
+    const reset = await requestResetAndCaptureCode(box);
+
+    expect(
+      (await inContext((a) => a.resetPassword(confirm, "a-brand-new-password"))).message,
+    ).toMatch(/not valid/i);
+    expect((await inContext((a) => a.verifyEmail(reset))).message).toMatch(/not valid/i);
+  });
+
+  it("resends at most once a minute, and not at all once confirmed", async () => {
+    const user = await seedUser({ emailVerified: false });
+    const box = mailbox();
+    const send = () => inContext((auth) => auth.sendEmailVerification(user), { env: box.env });
+
+    expect((await send()).value).toBe("sent");
+    expect((await send()).value).toBe("too_soon");
+    expect(box.sent).toHaveLength(1);
+
+    const verified = await inContext((auth) =>
+      auth.sendEmailVerification({ ...user, emailVerified: true }),
+    );
+    expect(verified.value).toBe("verified");
+  });
+
+  it("says it is unavailable when the site cannot send email", async () => {
+    const user = await seedUser({ emailVerified: false });
+    const { value } = await inContext((auth) => auth.sendEmailVerification(user), {
+      env: { ORIGIN: "https://app.test" },
+    });
+    expect(value).toBe("unavailable");
+    expect(await db.select().from(verificationCodes)).toHaveLength(0);
   });
 });
 

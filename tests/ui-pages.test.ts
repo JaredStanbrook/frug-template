@@ -24,13 +24,16 @@ const createAppConfig = (): AppConfig => ({
   origin: "http://localhost:3000",
 });
 
-const createAuthConfig = (methods: string[] = ["password"]): AuthConfig => ({
+const createAuthConfig = (
+  methods: string[] = ["password"],
+  requireEmailVerification = false,
+): AuthConfig => ({
   methods: new Set(methods as any),
   session: { duration: 1000, renewalThreshold: 500, maxSessions: 5 },
   security: {
     maxFailedAttempts: 5,
     lockoutDuration: 300,
-    requireEmailVerification: false,
+    requireEmailVerification,
     requirePhoneVerification: false,
     allowedEmails: [],
     jwtSecret: "test",
@@ -58,14 +61,19 @@ const createAuthConfig = (methods: string[] = ["password"]): AuthConfig => ({
  * when only one method is enabled, so a single-method config never renders
  * roughly half of those screens.
  */
-const createTestApp = (user: any | null, methods?: string[], registrationOpen = true) => {
+const createTestApp = (
+  user: any | null,
+  methods?: string[],
+  registrationOpen = true,
+  requireEmailVerification = false,
+) => {
   const fakeDb = createFakeDb(createMockData());
 
   const wrapper = new Hono<AppEnv>();
   wrapper.use("*", async (c, next) => {
     c.set("db", fakeDb as any);
     c.set("app", createAppConfig());
-    c.set("authConfig", createAuthConfig(methods));
+    c.set("authConfig", createAuthConfig(methods, requireEmailVerification));
     c.set("auth", {
       user,
       session: user ? { id: user.id } : null,
@@ -95,7 +103,15 @@ describe("UI pages load", () => {
   it("serves public pages to signed-out visitors", async () => {
     const testApp = createTestApp(null);
 
-    for (const path of ["/", "/login", "/register", "/cookies"]) {
+    for (const path of [
+      "/",
+      "/login",
+      "/register",
+      "/cookies",
+      "/forgot-password",
+      "/reset-password?token=abc",
+      "/verify-email?token=abc",
+    ]) {
       const res = await get(testApp, path);
       expect(res.status, `GET ${path}`).toBe(200);
     }
@@ -116,6 +132,47 @@ describe("UI pages load", () => {
     // Open by default: the prompt is there on an ordinary site.
     const open = await (await get(createTestApp(null), "/login")).text();
     expect(open).toContain("have an account?");
+  });
+
+  it("keeps emailed tokens out of the Referer, and asks before confirming", async () => {
+    const testApp = createTestApp(null);
+    for (const path of ["/reset-password?token=abc", "/verify-email?token=abc"]) {
+      const res = await get(testApp, path);
+      expect(res.headers.get("referrer-policy"), path).toBe("no-referrer");
+    }
+    // A mail scanner opening the link must not confirm anything: a button does.
+    const html = await (await get(testApp, "/verify-email?token=abc")).text();
+    expect(html).toContain('hx-post="/verify-email"');
+  });
+
+  it("offers a password reset only where email can be sent", async () => {
+    // The test env's ORIGIN is localhost, where emails are printed instead.
+    const local = await (await get(createTestApp(null), "/login")).text();
+    expect(local).toContain("/forgot-password");
+
+    const res = await createTestApp(null).fetch(new Request("http://localhost/login"), {
+      ...env,
+      ORIGIN: "https://site.test",
+    });
+    expect(await res.text()).not.toContain("/forgot-password");
+  });
+
+  it("holds an unconfirmed user at /verify-email when confirmation is required", async () => {
+    const unconfirmed = { ...createMockData().users[0], emailVerified: false };
+    const strict = createTestApp(unconfirmed, undefined, true, true);
+
+    for (const path of ["/profile", "/notes", "/admin/logs"]) {
+      const res = await get(strict, path);
+      expect(res.status, path).toBe(302);
+      expect(res.headers.get("location"), path).toBe("/verify-email");
+    }
+    // The page itself is reachable, or nobody could ever get past it.
+    const page = await get(strict, "/verify-email");
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain("Send the link again");
+
+    // Off by default: the same user goes straight in.
+    expect((await get(createTestApp(unconfirmed), "/profile")).status).toBe(200);
   });
 
   it("does not offer a restricted role on the sign-up form", async () => {
@@ -196,6 +253,9 @@ describe("UI pages load", () => {
       [signedIn, "/notes"],
       [signedIn, "/notes/new"],
       [signedIn, "/admin/logs"],
+      [signedOut, "/forgot-password"],
+      [signedOut, "/reset-password?token=abc"],
+      [signedOut, "/verify-email?token=abc"],
     ];
 
     for (const [testApp, path] of pages) {

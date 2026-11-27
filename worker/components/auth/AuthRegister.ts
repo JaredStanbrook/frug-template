@@ -145,12 +145,30 @@ export class AuthRegister extends LitElement {
 
       if (!response.ok) throw new Error(await getErrorMessage(response));
 
-      redirectWithToast("/", "Account created successfully!", "Redirecting...", "success");
+      await this.afterSignUp(response, "Account created successfully!", "Redirecting...");
     } catch (error: any) {
       this.showError(error.message);
     } finally {
       this.isSubmitting = false;
       this.enableSubmitButton(form);
+    }
+  }
+
+  /**
+   * Where a new account goes next. With REQUIRE_EMAIL_VERIFICATION on, every
+   * guarded page would only send it to /verify-email, so go there directly
+   * and say why.
+   */
+  private async afterSignUp(
+    response: { json(): Promise<unknown> },
+    message: string,
+    description: string,
+  ) {
+    const { requiresVerification } = (await response.json()) as { requiresVerification?: boolean };
+    if (requiresVerification) {
+      redirectWithToast("/verify-email", message, "Confirm your email to carry on.", "success");
+    } else {
+      redirectWithToast("/", message, description, "success");
     }
   }
 
@@ -194,7 +212,7 @@ export class AuthRegister extends LitElement {
 
       if (!response.ok) throw new Error(await getErrorMessage(response));
 
-      redirectWithToast("/", "Account created successfully!", "Redirecting...", "success");
+      await this.afterSignUp(response, "Account created successfully!", "Redirecting...");
     } catch (error: any) {
       this.showError(error.message);
     } finally {
@@ -242,7 +260,7 @@ export class AuthRegister extends LitElement {
       });
 
       if (!verRes.ok) throw new Error(await getErrorMessage(verRes));
-      redirectWithToast("/", "Passkey registered successfully!", "Congrats!", "success");
+      await this.afterSignUp(verRes, "Passkey registered successfully!", "Congrats!");
     } catch (error: any) {
       if (error.name === "NotAllowedError") {
         // The browser says the same for cancelled, timed out and refused.

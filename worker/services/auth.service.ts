@@ -31,6 +31,7 @@ import type { Context } from "hono";
 import { sign } from "hono/jwt";
 import { setCookie, deleteCookie } from "hono/cookie";
 import * as OTPAuth from "otpauth";
+import { emailFlowsAvailable, linkEmail, sendEmail } from "./email.service";
 
 /**
  * Signing algorithm for the session JWT. `sign` defaults to HS256; `verify`
@@ -56,6 +57,17 @@ const hashToken = async (token: string) =>
  * same shape and genuinely comparable.
  */
 const sessionNow = () => new Date().toISOString();
+
+/**
+ * One-time links sent by email, stored hashed in `verification_codes` by
+ * type. A reset link is short-lived because it is a password equivalent; a
+ * confirmation link only proves a mailbox, so it can wait in an inbox a day.
+ */
+type LinkTokenType = "password_reset" | "email_verify";
+const RESET_LINK_TTL = 60 * 60 * 1000;
+const VERIFY_LINK_TTL = 24 * 60 * 60 * 1000;
+/** At most one link of each type per account per minute. See `issueLinkToken`. */
+const LINK_COOLDOWN = 60 * 1000;
 
 const CHALLENGE_PREFIX = "challenge:";
 const CHALLENGE_TTL = 300; // 5 minutes
@@ -377,7 +389,7 @@ export class Auth {
    * awaited inline instead; either way a failure is logged, never thrown at a
    * request that has already been answered.
    */
-  private afterResponse(work: Promise<unknown>) {
+  afterResponse(work: Promise<unknown>) {
     const logged = work.catch((e) => console.error("Deferred write failed", e));
     try {
       this.c.executionCtx.waitUntil(logged);
@@ -694,9 +706,8 @@ export class Auth {
       metadata: JSON.stringify({ assignedRole: roleToAssign }),
     });
 
-    if (this.authConfig.security.requireEmailVerification && data.email) {
-      // TODO: Implement sendVerificationCode
-    }
+    // Confirm the address, after the response: sign-up should not wait on mail.
+    this.afterResponse(this.sendEmailVerification(newUser));
     this.user = safeUser;
 
     return {
@@ -926,72 +937,79 @@ export class Auth {
       this.user = { ...this.user, ...updateData };
     }
   }
-  async requestPasswordReset(email: string) {
+  /**
+   * Email a password reset link, if the address belongs to an active account.
+   *
+   * Says nothing either way. The route answers the same whether or not there
+   * is an account, and runs this after the response (`afterResponse`), so the
+   * time it takes does not tell a stranger either.
+   */
+  async requestPasswordReset(rawEmail: string) {
+    if (!this.isMethodEnabled("password") || !emailFlowsAvailable(this.c.env)) return;
+
+    const email = this.normaliseEmail(rawEmail);
     const user = await this.db.select().from(users).where(eq(users.email, email)).get();
-    if (!user) return;
+    if (!user || !user.isActive) return;
 
-    const code = randomString(32);
-    const expiresAt = new Date(Date.now() + 3600000);
+    const token = await this.issueLinkToken(user.id, "password_reset", RESET_LINK_TTL);
+    if (!token) return;
 
-    // Store a hash, never the token. A reset code in the clear is a password
-    // equivalent: anyone who can read the table — a backup, a log of a query,
-    // a read-only replica — can take over every account with a reset pending,
-    // and unlike a password it needs no cracking at all.
-    await this.db.insert(verificationCodes).values({
-      userId: user.id,
-      code: await hashToken(code),
-      type: "password_reset",
-      expiresAt: expiresAt.toISOString(),
-    });
+    await this.logAuthEvent({ userId: user.id, event: "password_reset_request", method: "email" });
 
-    // Logging the request itself is often useful
-    await this.logAuthEvent({
-      userId: user.id,
-      event: "password_reset_request",
-      method: "email",
-    });
-
-    console.log(`Password reset code for ${email}: ${code}`);
+    const site = this.siteName();
+    await sendEmail(
+      this.c.env,
+      linkEmail({
+        to: user.email,
+        subject: `Reset your ${site} password`,
+        intro:
+          `Someone asked to reset the password for your ${site} account. If it was you, ` +
+          "this link lets you choose a new one. It works once, within an hour.",
+        action: "Choose a new password",
+        url: this.linkTo(`/reset-password?token=${token}`),
+        outro: "If it was not you, ignore this email. Your password has not changed.",
+      }),
+    );
   }
 
   async resetPassword(token: string, newPassword: string) {
-    // Look up by hash, since that is what was stored.
-    const verification = await this.db
-      .select()
-      .from(verificationCodes)
-      .where(
-        and(
-          eq(verificationCodes.code, await hashToken(token)),
-          eq(verificationCodes.type, "password_reset"),
-          gt(verificationCodes.expiresAt, new Date().toISOString()),
-        ),
-      )
-      .get();
-
-    if (!verification) throw new Error("Invalid or expired reset token");
-
+    // Before the link is spent, so a password the policy refuses does not
+    // cost the user their link.
     this.assertPasswordPolicy(newPassword);
+
+    const spent = await this.consumeLinkToken(token, "password_reset");
+    if (!spent?.userId) {
+      throw new Error(
+        "This reset link is not valid: it may have expired or been used. Ask for a new one.",
+      );
+    }
 
     const newHash = await hashPassword(newPassword, this.authConfig.security.hashIterations);
     await this.db
       .update(users)
-      .set({ passwordHash: newHash })
-      .where(eq(users.id, verification.userId));
-
-    // Single use.
-    await this.db.delete(verificationCodes).where(eq(verificationCodes.id, verification.id));
+      .set({
+        passwordHash: newHash,
+        // The link proved the mailbox. And a reset is how somebody locked out
+        // gets back in, so it ends the lockout as well.
+        emailVerified: true,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(users.id, spent.userId));
 
     // A reset is the one case where every existing session should end without
     // exception: the person resetting is not necessarily the person signed in,
     // and that is the whole point of resetting.
-    await this.revokeAllSessions(verification.userId, { reason: "password_reset" });
+    await this.revokeAllSessions(spent.userId, { reason: "password_reset" });
 
     await this.logAuthEvent({
-      userId: verification.userId,
+      userId: spent.userId,
       event: "password_reset",
       method: "password",
     });
   }
+
   async changePassword(userId: string, data: z.infer<typeof changePasswordRequestSchema>) {
     if (!this.isMethodEnabled("password")) {
       throw new Error("Password authentication is disabled.");
@@ -1286,9 +1304,7 @@ export class Auth {
       method: "passkey",
       metadata: JSON.stringify({ credentialId: credential.id, assignedRole: roleToAssign }),
     });
-    if (this.authConfig.security.requireEmailVerification && email) {
-      // TODO: Implement sendVerificationCode
-    }
+    this.afterResponse(this.sendEmailVerification(newUser));
     this.user = safeUser;
 
     // The caller opens the session (createSession), as for every other method.
@@ -1408,70 +1424,134 @@ export class Auth {
   }
 
   // ==========================================
-  // VERIFICATION
+  // EMAIL LINKS: CONFIRMATION AND RESET
   // ==========================================
 
-  async sendVerificationCode(type: "email" | "sms") {
-    if (!this.user) throw new Error("Not authenticated");
-
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 600000);
-
-    await this.db.insert(verificationCodes).values({
-      userId: this.user.id,
-      code,
-      type,
-      expiresAt: expiresAt.toISOString(),
-    });
-
-    await this.logAuthEvent({
-      userId: this.user.id,
-      event: `${type}_code_sent`,
-      method: type,
-    });
-
-    if (type === "email") {
-      console.log(`Email verification code for ${this.user.email}: ${code}`);
-    } else if (type === "sms") {
-      console.log(`SMS verification code for ${this.user.phoneNumber}: ${code}`);
-    }
-
-    return { sent: true };
+  /** A display name for emails: APP_NAME, else the host links point at. */
+  private siteName() {
+    return this.c.env.APP_NAME || new URL(this.linkTo("/")).hostname;
   }
 
-  async verifyCode(code: string, type: "email" | "sms" | "password_reset") {
-    if (!this.user) throw new Error("Not authenticated");
+  /**
+   * An absolute link for an email, on ORIGIN. Not on the request's Host
+   * header: that is the sender's to choose, and a reset link pointed at their
+   * host would hand them the token.
+   */
+  private linkTo(path: string) {
+    return new URL(path, this.c.env.ORIGIN || new URL(this.c.req.url).origin).toString();
+  }
 
-    const verification = await this.db
-      .select()
+  /**
+   * Issue a one-time link token for an account, retiring any earlier one of
+   * the same type, so only the newest link in the inbox works. Stored as a
+   * hash: a token in the clear would be a password equivalent for anyone who
+   * can read the table.
+   *
+   * Null when one was issued in the last minute. The per-IP limiter allows
+   * twenty requests a minute, which is plenty to fill somebody else's inbox
+   * from a form that takes any address; this is the per-account stop.
+   */
+  private async issueLinkToken(userId: string, type: LinkTokenType, ttl: number) {
+    const recent = await this.db
+      .select({ id: verificationCodes.id })
       .from(verificationCodes)
       .where(
         and(
-          eq(verificationCodes.userId, this.user.id),
-          eq(verificationCodes.code, code),
+          eq(verificationCodes.userId, userId),
+          eq(verificationCodes.type, type),
+          gt(verificationCodes.createdAt, new Date(Date.now() - LINK_COOLDOWN).toISOString()),
+        ),
+      )
+      .get();
+    if (recent) return null;
+
+    await this.db
+      .delete(verificationCodes)
+      .where(and(eq(verificationCodes.userId, userId), eq(verificationCodes.type, type)));
+
+    const token = randomString(32); // 128 bits, hex
+    await this.db.insert(verificationCodes).values({
+      userId,
+      type,
+      code: await hashToken(token),
+      expiresAt: new Date(Date.now() + ttl).toISOString(),
+      // ISO, like expiresAt, so the cooldown above compares like with like.
+      createdAt: new Date().toISOString(),
+    });
+    return token;
+  }
+
+  /**
+   * Spend a link token. The row is deleted in the same statement that finds
+   * it, so a link works once even when two tabs race to use it.
+   */
+  private async consumeLinkToken(token: string, type: LinkTokenType) {
+    const [row] = await this.db
+      .delete(verificationCodes)
+      .where(
+        and(
+          eq(verificationCodes.code, await hashToken(token)),
           eq(verificationCodes.type, type),
           gt(verificationCodes.expiresAt, new Date().toISOString()),
         ),
       )
-      .get();
+      .returning({ userId: verificationCodes.userId });
+    return row as { userId: string | null } | undefined;
+  }
 
-    if (!verification) throw new Error("Invalid or expired code");
+  /**
+   * Email a link that confirms the account's address. Sent on sign-up, and
+   * again on request from /verify-email and the profile. Resolves to what
+   * happened, so whoever asked can be told.
+   */
+  async sendEmailVerification(user: {
+    id: string;
+    email: string | null;
+    emailVerified?: boolean | null;
+  }): Promise<"sent" | "verified" | "too_soon" | "unavailable"> {
+    if (user.emailVerified) return "verified";
+    if (!user.email || !emailFlowsAvailable(this.c.env)) return "unavailable";
 
-    if (type === "email") {
-      await this.db.update(users).set({ emailVerified: true }).where(eq(users.id, this.user.id));
-    } else if (type === "sms") {
-      await this.db.update(users).set({ phoneVerified: true }).where(eq(users.id, this.user.id));
+    const token = await this.issueLinkToken(user.id, "email_verify", VERIFY_LINK_TTL);
+    if (!token) return "too_soon";
+
+    const site = this.siteName();
+    const sent = await sendEmail(
+      this.c.env,
+      linkEmail({
+        to: user.email,
+        subject: `Confirm your email for ${site}`,
+        intro: `Confirm that ${user.email} is your address on ${site}. The link works once, within a day.`,
+        action: "Confirm my email",
+        url: this.linkTo(`/verify-email?token=${token}`),
+        outro: `If you did not sign up to ${site}, ignore this email.`,
+      }),
+    );
+    if (sent) {
+      await this.logAuthEvent({
+        userId: user.id,
+        event: "email_verification_sent",
+        method: "email",
+      });
+    }
+    return sent ? "sent" : "unavailable";
+  }
+
+  /** Spend a confirmation link: the address it was sent to is confirmed. */
+  async verifyEmail(token: string) {
+    const spent = await this.consumeLinkToken(token, "email_verify");
+    if (!spent?.userId) {
+      throw new Error("This link is not valid: it may have expired or been used already.");
     }
 
-    await this.db.delete(verificationCodes).where(eq(verificationCodes.id, verification.id));
+    await this.db
+      .update(users)
+      .set({ emailVerified: true, updatedAt: new Date().toISOString() })
+      .where(eq(users.id, spent.userId));
+    if (this.user?.id === spent.userId) this.user = { ...this.user, emailVerified: true };
 
-    await this.logAuthEvent({
-      userId: this.user.id,
-      event: `${type}_verified`,
-      method: type,
-    });
-
-    return true;
+    await this.logAuthEvent({ userId: spent.userId, event: "email_verified", method: "email" });
+    return { userId: spent.userId };
   }
 
   // ==========================================

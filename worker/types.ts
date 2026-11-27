@@ -57,6 +57,12 @@ export type Vars = {
   COOKIE_CATEGORIES?: string;
   /** Days analytics rows are kept. Unset: 395 (13 months). */
   ANALYTICS_RETENTION_DAYS?: string;
+  /**
+   * The address password reset and confirmation emails come from, on a domain
+   * onboarded to Cloudflare Email Service. Empty: no email is sent. See
+   * worker/services/email.service.ts.
+   */
+  EMAIL_FROM?: string;
 };
 
 /**
@@ -77,6 +83,11 @@ export type Bindings = Vars & {
   ASSETS: Fetcher;
   /** Optional file storage. Remove here and in wrangler.jsonc if unused. */
   R2: R2Bucket;
+  /**
+   * Cloudflare Email Service (`send_email` in wrangler.jsonc). Optional: with
+   * it or EMAIL_FROM missing, nothing is sent. See email.service.ts.
+   */
+  EMAIL?: SendEmail;
   /** Per-IP throttle on the auth API. See worker/routes/api/auth.ts. */
   RATE_LIMITER: RateLimiter;
   /**

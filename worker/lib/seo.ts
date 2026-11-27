@@ -74,7 +74,17 @@ export interface ResolvedMeta {
  * business ranking. Sign-in and registration forms compete with real content
  * and offer a searcher nothing.
  */
-const NOINDEX_PATHS = ["/login", "/register", "/join", "/admin", "/dev", "/api"];
+const NOINDEX_PATHS = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+  "/join",
+  "/admin",
+  "/dev",
+  "/api",
+];
 
 const isNoindexPath = (pathname: string) =>
   NOINDEX_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

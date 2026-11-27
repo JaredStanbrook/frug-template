@@ -93,6 +93,10 @@ Path aliases: `@server/*` → `worker/*`, `@views/*` → `worker/views/*`,
 - `SESSION_DURATION` and `LOCKOUT_DURATION` are milliseconds; `JWT_EXPIRY` is
   **seconds**. Mixing them up is silent and gives multi-year sessions.
 - `RP_ID` and `ORIGIN` must match the deployed domain or passkeys fail silently.
+  Emailed reset and confirmation links are built on `ORIGIN` too.
+- Email goes through Cloudflare Email Service (`EMAIL` binding + `EMAIL_FROM`,
+  `worker/services/email.service.ts`). Never log a message's body outside
+  localhost: its links are as good as a password.
 - Never return a raw `users` row. `Auth.toSafeUser()` strips `passwordHash`,
   `pin` and `totpSecret`; every exit from the auth service goes through it.
 - Scope queries by owner in the `where` clause, not only in a post-hoc check.

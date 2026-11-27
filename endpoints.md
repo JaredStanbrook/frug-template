@@ -12,12 +12,12 @@ from. Read it alongside this document.
 
 Routes live in `worker/routes/`, grouped by audience:
 
-| Directory               | Purpose                                             | Response type               |
-| :---------------------- | :-------------------------------------------------- | :-------------------------- |
-| `web/`                  | Public pages (home, login, register)                | Full HTML or HTMX fragments |
-| `admin/`                | Routes behind `requireRole("admin")`                | Full HTML or HTMX fragments |
-| `api/`                  | JSON endpoints for programmatic and client-side use | JSON                        |
-| root (e.g. `notes.tsx`) | Feature routers mounted directly                    | Full HTML or HTMX fragments |
+| Directory               | Purpose                                              | Response type               |
+| :---------------------- | :--------------------------------------------------- | :-------------------------- |
+| `web/`                  | Public pages (home, sign-in, sign-up, emailed links) | Full HTML or HTMX fragments |
+| `admin/`                | Routes behind `requireRole("admin")`                 | Full HTML or HTMX fragments |
+| `api/`                  | JSON endpoints for programmatic and client-side use  | JSON                        |
+| root (e.g. `notes.tsx`) | Feature routers mounted directly                     | Full HTML or HTMX fragments |
 
 Every route file exports a `new Hono<AppEnv>()` instance, which is what makes
 `c.env`, `c.var.db`, `c.var.auth` and `c.var.app` typed inside handlers.

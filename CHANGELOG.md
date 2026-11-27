@@ -10,6 +10,90 @@ Sites built from the template read these sections when they upgrade, so write
 each one for a site owner: what changed, and anything they must do by hand.
 See `docs/template-versions.md`.
 
+## [0.6.1] - 2026-11-27
+
+### Toasts
+
+- **Toasts sent across a client-side redirect now appear.** "Login
+  successful!", "Logged out successfully", "Account created successfully!"
+  and every other `redirectWithToast` message were written to
+  `sessionStorage` under a key nothing read, so they were never shown. They
+  now go in the `flash-toast` cookie the server's `flashToast` already uses
+  (listed in `cookies.config.ts` as strictly necessary), and the one reader
+  shows both.
+- Screen readers announce toasts (an `aria-live` region that is always on
+  the page).
+- A toast stops counting down while the pointer or keyboard focus is on it.
+- Errors stay at least 8 seconds, however short a duration they were given.
+- At most three at once, newest on top; the same message again restarts the
+  one showing instead of stacking a copy.
+- They now sit top right, under the nav, instead of bottom right, where they
+  covered the cookie banner's buttons. A coloured edge marks the type, they
+  use the `popover` theme tokens, and they slide away when closed (no motion
+  with reduced motion on).
+- Reading the flash cookie no longer throws when another cookie holds a
+  stray `%`, and a message containing `;` is no longer cut in two.
+
+**By hand:** nothing. If your own code read `sessionStorage.pending_toast`,
+read the toast with `getFlashToast()` instead.
+
+## [0.6.0] - 2026-11-27
+
+### Email, password reset and confirming an address
+
+The site can now send email, through **Cloudflare Email Service**, and uses it
+for the two things every sign-in needs.
+
+- **Forgot password.** The "Forgot password?" link on the sign-in page used
+  to lead to a 404. `/forgot-password` now emails a link to
+  `/reset-password`, where the owner chooses a new password. The link works
+  once, for an hour, and only the newest one works. A reset signs the
+  account out everywhere, lifts any lockout, and still asks for the
+  authenticator code if the account has one. The form gives the same answer
+  for every address, so it cannot be used to find out who has an account.
+- **Confirm your email.** Every new account is sent a link to
+  `/verify-email`. Opening it shows one button to press, so a mail scanner
+  that opens links does not confirm an address on its own. The profile shows
+  "Confirm your email" until then, and `/verify-email` can send the link
+  again (at most once a minute).
+- **`REQUIRE_EMAIL_VERIFICATION` now does something.** It was read and
+  ignored. Set to `"true"`, a signed-in user with an unconfirmed address is
+  sent to `/verify-email` from every page behind `requireUser`,
+  `requireRole` or `requirePermission`. A new sign-up goes straight there.
+- Reset and confirmation links are built on `ORIGIN`, never the request's
+  Host header.
+- **Reset codes are no longer written to the logs.** The old
+  `requestPasswordReset` printed every live reset code with `console.log`,
+  which Workers Logs keeps. Messages are now printed only when `ORIGIN` is
+  localhost, which is how you follow a link during local development.
+- The unused `sendVerificationCode` and `verifyCode` (six-digit codes,
+  stored in the clear, from `Math.random`) are gone, replaced by the links
+  above.
+- Deleting an account now clears the session cookie. The sign-out it does
+  was not awaited, so the cookie survived.
+
+New pieces: `worker/services/email.service.ts` (`sendEmail`, `linkEmail`),
+`worker/views/pages/EmailLinks.tsx`, and
+`worker/middleware/rate-limit.middleware.ts` (the per-IP auth throttle, moved
+out of `routes/api/auth.ts` so the new forms use it too). No schema change:
+the links use the existing `verification_codes` table.
+
+**By hand:**
+
+1. Email is off until you set it up. Nothing breaks without it, but
+   "Forgot password?" is hidden and new addresses stay unconfirmed. To turn
+   it on, follow **Step 7 — Email** in `docs/deploy.md`: onboard your domain
+   under Compute → Email Service, then set `EMAIL_FROM` in `wrangler.jsonc`.
+   Sending to anyone needs the Workers Paid plan.
+2. The upgrade adds a `send_email` binding and an `EMAIL_FROM` var to
+   `wrangler.jsonc`. Keep both if you merge that file by hand. Run
+   `npm run gen` afterwards so `worker-configuration.d.ts` knows the binding.
+3. If `REQUIRE_EMAIL_VERIFICATION` is `"true"` on your site, set up email
+   **before** deploying this. It is now enforced, and without email nobody
+   can confirm an address, so nobody gets past `/verify-email`.
+4. If you added your own `/forgot-password`, `/reset-password` or
+   `/verify-email` route, it now clashes with the template's.
+
 ## [0.5.1] - 2026-11-25
 
 ### Security: passkey sign-in
