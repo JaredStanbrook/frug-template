@@ -175,6 +175,19 @@ describe("UI pages load", () => {
     expect((await get(createTestApp(unconfirmed), "/profile")).status).toBe(200);
   });
 
+  it("carries ?next= between sign-in and sign-up, and honours it once signed in", async () => {
+    const login = await (await get(createTestApp(null), "/login?next=%2Fnotes")).text();
+    expect(login).toContain('href="/register?next=%2Fnotes"');
+    const register = await (await get(createTestApp(null), "/register?next=%2Fnotes")).text();
+    expect(register).toContain('href="/login?next=%2Fnotes"');
+
+    const signedIn = createTestApp(createMockData().users[0]);
+    const back = await get(signedIn, "/login?next=%2Fnotes");
+    expect(back.headers.get("location")).toBe("/notes");
+    const away = await get(signedIn, "/login?next=%2F%2Fevil.example");
+    expect(away.headers.get("location")).toBe("/");
+  });
+
   it("does not offer a restricted role on the sign-up form", async () => {
     const html = await (await get(createTestApp(null), "/register")).text();
     expect(html).not.toMatch(/<option[^>]*value="admin"/);

@@ -1,5 +1,6 @@
 import { hc } from "hono/client";
 import { type AppType } from "@server/app";
+import { safeNextPath } from "@server/lib/next-path";
 
 const client = hc<AppType>("/");
 export const api = client.api;
@@ -94,3 +95,10 @@ export function getFlashToast() {
     return null;
   }
 }
+
+/**
+ * Where to land after signing in or registering: the page in `?next=` when it
+ * is on this site, else home. See `safeNextPath` for what is refused.
+ */
+export const nextPath = (): string =>
+  safeNextPath(new URLSearchParams(window.location.search).get("next"));

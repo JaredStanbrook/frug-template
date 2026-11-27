@@ -40,6 +40,10 @@ top of `Layout.tsx`) reads `localStorage["vite-ui-theme"]` and applies `.dark`
 to `<html>` before first paint, so there is no flash. The toggle in
 `NavBar.tsx` cycles light → dark → system.
 
+Tailwind's `dark:` variant follows that class (`@custom-variant dark` in
+`index.css`), not only the operating system's setting. Tokens are still the
+first choice; reach for `dark:` only where a token cannot say it.
+
 Colours are `oklch()` — perceptually uniform, so a lightness change reads as
 the same visual step across hues. Keep new values in `oklch` for consistency.
 

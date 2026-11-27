@@ -1,6 +1,6 @@
 import { LitElement, html } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
-import { api, getErrorMessage, redirectWithToast } from "../lib/utils";
+import { api, getErrorMessage, nextPath, redirectWithToast } from "../lib/utils";
 import "./TotpVerifyModal";
 import type { TotpVerifyModal } from "./TotpVerifyModal";
 import { startAuthentication } from "@simplewebauthn/browser";
@@ -146,7 +146,7 @@ export class AuthLogin extends LitElement {
 
       if (!response.ok) throw new Error(await getErrorMessage(response));
 
-      redirectWithToast("/", "Login successful!", "Welcome to your dashboard.", "success");
+      redirectWithToast(nextPath(), "Login successful!", "Welcome to your dashboard.", "success");
     } catch (error: any) {
       this.showError(error.message);
     } finally {
@@ -180,7 +180,7 @@ export class AuthLogin extends LitElement {
       this.totpModal.verifySuccess();
       this.totpSessionData = null;
 
-      redirectWithToast("/", "Login successful!", "Welcome to your dashboard.", "success");
+      redirectWithToast(nextPath(), "Login successful!", "Welcome to your dashboard.", "success");
     } catch (error: any) {
       this.totpModal.verifyError("Verification failed. Please try again.");
       console.error("TOTP verification error:", error);
@@ -215,7 +215,7 @@ export class AuthLogin extends LitElement {
 
       if (!response.ok) throw new Error(await getErrorMessage(response));
 
-      redirectWithToast("/", "Login successful!", "Welcome to your dashboard.", "success");
+      redirectWithToast(nextPath(), "Login successful!", "Welcome to your dashboard.", "success");
     } catch (error: any) {
       this.showError(error.message);
     } finally {
@@ -257,7 +257,7 @@ export class AuthLogin extends LitElement {
 
       if (!verRes.ok) throw new Error(await getErrorMessage(verRes));
 
-      redirectWithToast("/", "Login successful!", "Welcome to your dashboard.", "success");
+      redirectWithToast(nextPath(), "Login successful!", "Welcome to your dashboard.", "success");
     } catch (error: any) {
       // The browser says the same for cancelled, timed out and no passkey here.
       this.showError(

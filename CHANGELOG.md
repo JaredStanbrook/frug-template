@@ -10,6 +10,37 @@ Sites built from the template read these sections when they upgrade, so write
 each one for a site owner: what changed, and anything they must do by hand.
 See `docs/template-versions.md`.
 
+## [0.7.0] - 2026-11-27
+
+### Sign-in returns you where you were
+
+- **`/login` and `/register` take `?next=`.** A page that needs an account
+  can send someone to `/login?next=/somewhere` and, once they have signed in
+  or registered, they land back on `/somewhere` instead of the home page.
+  The links between the two forms carry it along, and someone already
+  signed in is sent straight there.
+- Only a page on the same site is accepted. Anything else (`//other.site`,
+  `/\other.site`, a full URL, or a path with a tab or newline that a
+  browser would turn into one of those) goes home instead, so the parameter
+  cannot redirect someone to another site after they type their password.
+  The check is `safeNextPath` in `worker/lib/next-path.ts`; use it for any
+  redirect you build from a query value.
+
+### Fixes
+
+- **`dark:` classes follow the theme toggle.** Tailwind's `dark:` variant
+  followed only the operating system, so someone who picked dark on a
+  light-mode machine (or the reverse) got the wrong one wherever a view used
+  `dark:`. `index.css` now ties it to the `.dark` class the toggle sets.
+- **`createRealDb` keeps every column of a join.** It read rows as objects,
+  so when two joined tables shared a column name (`id`, `created_at`) only the
+  last survived, and the other table's field silently took its value. Tests
+  of joined queries were checking the wrong numbers. Rows are now read as
+  arrays, as D1 returns them.
+
+**By hand:** nothing. If a test of yours passed only because of the join bug,
+it will now fail and show the real values.
+
 ## [0.6.1] - 2026-11-27
 
 ### Toasts

@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* `dark:` follows the theme toggle (.dark on <html>), not only the OS. With
+   Tailwind's default, a `dark:` class stayed light for someone who chose dark
+   on a light-mode machine, and dark for someone who chose light. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* THEME: "Retro-futurist"
    Space-age mission control, circa 1969: lunar-grey daylight panels and a
    deep-navy night sky, Apollo orange for the one action on a page, teal and

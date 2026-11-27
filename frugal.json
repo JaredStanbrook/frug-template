@@ -1,5 +1,5 @@
 {
   "//": "The Frugal template version this repo is built from. In the template it is the current release; a site made from the template inherits it as the version it started on. Change it only through `npm run template -- upgrade` (or `pin`, once). See docs/template-versions.md.",
   "template": "https://github.com/JaredStanbrook/frug-template",
-  "version": "0.6.1"
+  "version": "0.7.0"
 }

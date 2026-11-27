@@ -1,4 +1,5 @@
 import type { FC } from "hono/jsx";
+import { withNext } from "@server/lib/next-path";
 import {
   AUTH_BUTTON,
   AUTH_INPUT,
@@ -17,10 +18,12 @@ export interface LoginProps {
   registrationOpen?: boolean;
   /** Offer "Forgot password?" only where a reset link can be sent. */
   passwordReset?: boolean;
+  /** Where to return after signing in; carried to the sign-up link too. */
+  next?: string;
 }
 
 export const Login: FC<LoginProps> = (props) => {
-  const { methods, csrfToken, registrationOpen = true, passwordReset = true } = props;
+  const { methods, csrfToken, registrationOpen = true, passwordReset = true, next = "/" } = props;
 
   const hasPassword = methods.includes("password");
   const hasPin = methods.includes("pin");
@@ -185,7 +188,10 @@ export const Login: FC<LoginProps> = (props) => {
         {registrationOpen ? (
           <p class="px-8 mt-6 text-center text-sm text-muted-foreground">
             Don't have an account?{" "}
-            <a href="/register" class="underline underline-offset-4 hover:text-primary font-medium">
+            <a
+              href={withNext("/register", next)}
+              class="underline underline-offset-4 hover:text-primary font-medium"
+            >
               Create Account
             </a>
           </p>
