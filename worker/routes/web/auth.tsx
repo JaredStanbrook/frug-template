@@ -83,6 +83,20 @@ webAuth.get("/login", async (c) => {
     title: "Sign In",
   });
 });
+/**
+ * Where the sign-in and sign-up forms land if they are sent before the page's
+ * script has loaded; normally <auth-login> / <auth-register> stop the submit
+ * and call the API. The body is never read, so nothing is signed in or
+ * created here: the visitor is sent back to the form to try again. The forms
+ * POST so that, even then, the password never appears in a URL.
+ */
+const notLoadedYet = (page: "/login" | "/register") => (c: Context<AppEnv>) => {
+  flashToast(c, "The page hadn't finished loading. Please try again.", { type: "warning" });
+  return c.redirect(withNext(page, safeNextPath(c.req.query("next"))), 303);
+};
+webAuth.post("/login", notLoadedYet("/login"));
+webAuth.post("/register", notLoadedYet("/register"));
+
 webAuth.post("/web/auth/logout", async (c) => {
   // 1. Clear Cookies/Session
   const { auth } = c.var;

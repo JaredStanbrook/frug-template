@@ -24,6 +24,11 @@ export interface LoginProps {
 
 export const Login: FC<LoginProps> = (props) => {
   const { methods, csrfToken, registrationOpen = true, passwordReset = true, next = "/" } = props;
+  // <auth-login> sends these forms to the API itself. Until its script has
+  // loaded, the browser would submit them natively: as a GET, with the
+  // password in the URL. POST keeps it out of the address bar, history and
+  // logs, and the server's POST /login only sends them back to try again.
+  const fallback = { method: "post", action: withNext("/login", next) } as const;
 
   const hasPassword = methods.includes("password");
   const hasPin = methods.includes("pin");
@@ -76,7 +81,7 @@ export const Login: FC<LoginProps> = (props) => {
           {/* Password tab content */}
           {hasPassword && (
             <div data-content="password" class="space-y-4">
-              <form id="login-form" class="grid gap-4">
+              <form id="login-form" {...fallback} class="grid gap-4">
                 {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
 
                 <AuthField id="email" label="Email Address">
@@ -122,7 +127,7 @@ export const Login: FC<LoginProps> = (props) => {
           {/* PIN tab content */}
           {hasPin && (
             <div data-content="pin" class="space-y-4 hidden">
-              <form id="pin-login-form" class="grid gap-4">
+              <form id="pin-login-form" {...fallback} class="grid gap-4">
                 {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
 
                 <AuthField id="pin-email" label="Email Address">
@@ -162,7 +167,7 @@ export const Login: FC<LoginProps> = (props) => {
             <div data-content="passkey" class="space-y-4 hidden">
               <AuthNote icon="key-round">Use your passkey to sign in securely.</AuthNote>
 
-              <form id="passkey-login-form" class="grid gap-4">
+              <form id="passkey-login-form" {...fallback} class="grid gap-4">
                 {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
 
                 <AuthField id="pk-email" label="Email Address">

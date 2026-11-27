@@ -12,6 +12,20 @@ See `docs/template-versions.md`.
 
 ## [0.7.0] - 2026-11-27
 
+### Security: passwords no longer end up in a URL
+
+- **The sign-in and sign-up forms could send the password in the address
+  bar.** They are sent by their scripts (`<auth-login>`, `<auth-register>`),
+  which call the API. Submitted before that script had loaded — a slow
+  connection, a quick Enter — the browser sent the form itself, and a form
+  with no method is a GET: `/login?email=…&password=…`. That puts the
+  password in the browser history, in server and proxy logs, and in the
+  `Referer` of anything the next page loads. All six forms (password, PIN,
+  passkey, on both pages) now POST, and `POST /login` / `POST /register`
+  send the visitor straight back to try again without reading what was sent.
+  A test now refuses any form with a password, PIN or email field that is
+  not a POST.
+
 ### Sign-in returns you where you were
 
 - **`/login` and `/register` take `?next=`.** A page that needs an account
@@ -38,8 +52,10 @@ See `docs/template-versions.md`.
   of joined queries were checking the wrong numbers. Rows are now read as
   arrays, as D1 returns them.
 
-**By hand:** nothing. If a test of yours passed only because of the join bug,
-it will now fail and show the real values.
+**By hand:** if you added a form of your own that holds a password or a code
+and is sent by a script, give it `method="post"` too. If a test of yours
+passed only because of the join bug, it will now fail and show the real
+values.
 
 ## [0.6.1] - 2026-11-27
 

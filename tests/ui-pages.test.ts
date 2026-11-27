@@ -188,6 +188,50 @@ describe("UI pages load", () => {
     expect(away.headers.get("location")).toBe("/");
   });
 
+  /**
+   * The sign-in and sign-up forms are sent by their islands, which call the
+   * API. Submitted before the island has loaded, the browser sends the form
+   * itself — and a form with no method is a GET, which put the password in
+   * the address bar, the history and the server's logs.
+   */
+  it("never sends a form holding credentials by GET", async () => {
+    const pages: [Hono<AppEnv>, string][] = [
+      [createTestApp(null), "/login"],
+      [createTestApp(null), "/register"],
+      [createTestApp(null, ["password", "pin", "passkey"]), "/login"],
+      [createTestApp(null, ["password", "pin", "passkey"]), "/register"],
+      [createTestApp(null), "/forgot-password"],
+      [createTestApp(null), "/reset-password?token=abc"],
+    ];
+    let checked = 0;
+    for (const [testApp, path] of pages) {
+      const html = await (await get(testApp, path)).text();
+      for (const chunk of html.split("<form").slice(1)) {
+        const openingTag = chunk.slice(0, chunk.indexOf(">"));
+        const body = chunk.slice(0, chunk.indexOf("</form>"));
+        if (!/type="password"|type="email"|name="pin"/.test(body)) continue;
+        checked++;
+        expect(openingTag, `a form on ${path}`).toMatch(/method="post"/);
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(8);
+  });
+
+  it("sends a form posted before its script loaded back to try again, unread", async () => {
+    for (const page of ["/login", "/register"]) {
+      const res = await createTestApp(null).fetch(
+        new Request(`http://localhost${page}?next=%2Fnotes`, {
+          method: "POST",
+          body: new URLSearchParams({ email: "a@example.com", password: "Secret-pass-123" }),
+        }),
+        env,
+      );
+      expect(res.status, page).toBe(303);
+      expect(res.headers.get("location"), page).toBe(`${page}?next=%2Fnotes`);
+      expect(res.headers.get("set-cookie") ?? "", page).toContain("flash-toast");
+    }
+  });
+
   it("does not offer a restricted role on the sign-up form", async () => {
     const html = await (await get(createTestApp(null), "/register")).text();
     expect(html).not.toMatch(/<option[^>]*value="admin"/);

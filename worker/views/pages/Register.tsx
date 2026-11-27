@@ -25,6 +25,11 @@ export interface RegisterProps {
 
 export const Register: FC<RegisterProps> = (props) => {
   const { methods, roles, defaultRole, csrfToken, passwordPolicy, next = "/" } = props;
+  // <auth-register> sends these forms to the API itself. Until its script has
+  // loaded, the browser would submit them natively: as a GET, with the
+  // password in the URL. POST keeps it out of the address bar, history and
+  // logs, and the server's POST /register only sends them back to try again.
+  const fallback = { method: "post", action: withNext("/register", next) } as const;
   const minLength = passwordPolicy?.minLength ?? 8;
   const policyHint = describePasswordPolicy(passwordPolicy);
 
@@ -97,7 +102,7 @@ export const Register: FC<RegisterProps> = (props) => {
           {/* Password tab content */}
           {hasPassword && (
             <div data-content="password" class="space-y-4">
-              <form id="register-form" class="grid gap-4">
+              <form id="register-form" {...fallback} class="grid gap-4">
                 {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
 
                 <AuthField id="email" label="Email Address">
@@ -162,7 +167,7 @@ export const Register: FC<RegisterProps> = (props) => {
           {/* PIN tab content */}
           {hasPin && (
             <div data-content="pin" class="space-y-4 hidden">
-              <form id="pin-form" class="grid gap-4">
+              <form id="pin-form" {...fallback} class="grid gap-4">
                 {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
 
                 <AuthField id="pin-email" label="Email Address">
@@ -229,7 +234,7 @@ export const Register: FC<RegisterProps> = (props) => {
                 Passkeys verify your identity using your fingerprint, face, or device PIN.
               </AuthNote>
 
-              <form id="passkey-form" class="grid gap-4">
+              <form id="passkey-form" {...fallback} class="grid gap-4">
                 {csrfToken && <input type="hidden" name="_csrf" value={csrfToken} />}
 
                 <AuthField id="pk-email" label="Email Address">
