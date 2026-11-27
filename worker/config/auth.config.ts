@@ -259,8 +259,18 @@ export function validateAuthConfig(env: any): { valid: boolean; errors: string[]
     errors.push("TOTP_ISSUER must be set when TOTP is enabled");
   }
 
-  if (config.methods.has("email") && !env.SMTP_HOST) {
-    errors.push("SMTP configuration required when email auth is enabled");
+  const emailConfigured = Boolean(env.EMAIL && env.EMAIL_FROM);
+  if (config.methods.has("email") && !emailConfigured) {
+    errors.push("Email auth needs the EMAIL send_email binding and EMAIL_FROM.");
+  }
+
+  // Every guarded page waits for a confirmed address, and the address can
+  // only be confirmed by a link that cannot be sent: nobody gets in.
+  if (config.security.requireEmailVerification && !emailConfigured) {
+    errors.push(
+      "REQUIRE_EMAIL_VERIFICATION is on but no email can be sent: add the EMAIL send_email " +
+        "binding and set EMAIL_FROM (docs/deploy.md, Email), or nobody can confirm their address.",
+    );
   }
 
   if (config.methods.has("sms") && !env.SMS_PROVIDER_API_KEY) {

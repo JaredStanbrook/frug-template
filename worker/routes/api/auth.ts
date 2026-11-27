@@ -18,6 +18,7 @@ import {
 } from "../../schema/auth.schema";
 import type { AppEnv } from "../../types";
 import { logAndSanitise } from "@server/lib/errors";
+import { authRateLimit } from "@server/middleware/rate-limit.middleware";
 
 // --- Routes ---
 export const passkey = new Hono<AppEnv>()
@@ -178,24 +179,8 @@ export const apiAuth = new Hono<AppEnv>()
       },
     }),
   )
-  // Per-IP throttle in front of every auth endpoint, from the RATE_LIMITER
-  // binding in wrangler.jsonc. This is a cheap edge-level backstop that runs
-  // before any database work; the per-account lockout in AuthService is the
-  // real defence, since an attacker can rotate IPs but not the target account.
-  // Skipped when the binding is absent so `npm run dev` and tests still work.
-  .use("*", async (c, next) => {
-    const limiter = c.env.RATE_LIMITER;
-    if (!limiter) return next();
-
-    const ip = c.req.header("cf-connecting-ip") || c.req.header("x-forwarded-for") || "unknown";
-    const { success } = await limiter.limit({ key: `auth:${ip}` });
-
-    if (!success) {
-      return c.json({ error: "Too many requests. Please slow down and try again." }, 429);
-    }
-
-    await next();
-  })
+  // Per-IP throttle in front of every auth endpoint. See rate-limit.middleware.ts.
+  .use("*", authRateLimit)
   .route("/passkey", passkey)
   .route("/totp", totp)
   .get("/methods", (c) => {
@@ -287,7 +272,9 @@ export const apiAuth = new Hono<AppEnv>()
     try {
       await auth.deleteAccount(user.id);
 
-      auth.destroySession();
+      // Awaited, like logout: un-awaited, the cookie is cleared after the
+      // response has already gone, so the browser keeps it.
+      await auth.destroySession();
 
       return c.json({ success: true });
     } catch (e: any) {

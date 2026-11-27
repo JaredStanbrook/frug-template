@@ -85,6 +85,14 @@ export const ProfilePage: FC<ProfileProps> = (props) => {
                   ? StatusBadge("verified", styles, "badge-check")
                   : StatusBadge("unverified", styles, "badge-x")}
               </div>
+              {!props.user.emailVerified && (
+                <a
+                  href="/verify-email"
+                  class="inline-flex min-h-11 items-center text-sm text-muted-foreground underline underline-offset-4 hover:text-primary"
+                >
+                  Confirm your email
+                </a>
+              )}
             </div>
 
             <div class="space-y-2">

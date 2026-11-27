@@ -155,6 +155,36 @@ Passwords and TOTP are unaffected.
 
 ---
 
+## Step 7 — Email (optional, needed for password reset)
+
+"Forgot password?" and "confirm your email" work by emailing a link. The site
+sends through **Cloudflare Email Service** via the `EMAIL` binding already in
+`wrangler.jsonc`. Until you finish this step nothing is sent, the sign-in page
+does not offer "Forgot password?", and new accounts stay unconfirmed.
+
+1. **Compute → Email Service → Email Sending → Onboard Domain.** Pick the
+   site's domain. It must use Cloudflare DNS. Cloudflare adds the SPF, DKIM,
+   DMARC and bounce records itself, usually within 15 minutes.
+2. Set `EMAIL_FROM` in `wrangler.jsonc` to an address on that domain, e.g.
+   `"noreply@my-site.example.com"`, and push. Emails show `APP_NAME` as the
+   sender's name.
+3. Sending to anyone needs the **Workers Paid** plan. On Free, Email Service
+   only delivers to addresses verified under Email Routing → Destination
+   Addresses, which is enough to test with your own inbox.
+4. Test it: sign up with an address you can read, or use "Forgot password?".
+   A send that fails is logged with its reason (`E_SENDER_DOMAIN_NOT_AVAILABLE`,
+   `E_RECIPIENT_PLAN_RESTRICTED`, ...) in the Worker's logs, never shown to the
+   visitor.
+
+Then, if every account must confirm its address before using the site, set
+`REQUIRE_EMAIL_VERIFICATION` to `"true"`. Not before: with no email, nobody
+can confirm, and every guarded page sends them to `/verify-email` for good.
+
+A site that will never send email can delete the `send_email` block and
+`EMAIL_FROM`.
+
+---
+
 ## Done
 
 Every push to the connected branch now builds, migrates and deploys. Ask Claude
@@ -166,23 +196,25 @@ for changes, let it push, watch the build.
 
 ## The three kinds of configuration
 
-| Kind        | Lives in                  | In git         | Read as            | Use for                               |
-| ----------- | ------------------------- | -------------- | ------------------ | ------------------------------------- |
-| **Binding** | `wrangler.jsonc`          | Yes (ids only) | `c.env.DB`         | D1, KV, R2, rate limiter, assets      |
-| **Var**     | `wrangler.jsonc` `"vars"` | Yes            | `c.env.APP_NAME`   | Non-sensitive settings                |
-| **Secret**  | Dashboard → Secrets       | **No**         | `c.env.JWT_SECRET` | Anything that grants access if leaked |
+| Kind        | Lives in                  | In git         | Read as            | Use for                                 |
+| ----------- | ------------------------- | -------------- | ------------------ | --------------------------------------- |
+| **Binding** | `wrangler.jsonc`          | Yes (ids only) | `c.env.DB`         | D1, KV, R2, email, rate limiter, assets |
+| **Var**     | `wrangler.jsonc` `"vars"` | Yes            | `c.env.APP_NAME`   | Non-sensitive settings                  |
+| **Secret**  | Dashboard → Secrets       | **No**         | `c.env.JWT_SECRET` | Anything that grants access if leaked   |
 
 ## Vars that must match reality
 
 Most vars are safe defaults. These break things quietly:
 
-| Var                | Must be                             | Symptom when wrong                                                                                                           |
-| ------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `RP_ID`            | Bare hostname, no scheme or port    | Passkeys fail with an opaque browser error                                                                                   |
-| `ORIGIN`           | Full origin with `https://`         | Passkeys fail; CSRF rejects your own forms                                                                                   |
-| `JWT_EXPIRY`       | **Seconds** (`86400` = 24h)         | A millisecond value (`86400000`) gives a ~2.7 **year** session                                                               |
-| `SESSION_DURATION` | **Milliseconds** (`86400000` = 24h) | A seconds value (`86400`) expires every session ~86s after sign-in. `validateAuthConfig` now refuses anything under a minute |
-| `ROLES_DEFAULT`    | A role listed in `ROLES_AVAILABLE`  | Registration throws at runtime                                                                                               |
+| Var                | Must be                                | Symptom when wrong                                                                                                           |
+| ------------------ | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `RP_ID`            | Bare hostname, no scheme or port       | Passkeys fail with an opaque browser error                                                                                   |
+| `ORIGIN`           | Full origin with `https://`            | Passkeys fail; CSRF rejects your own forms                                                                                   |
+| `JWT_EXPIRY`       | **Seconds** (`86400` = 24h)            | A millisecond value (`86400000`) gives a ~2.7 **year** session                                                               |
+| `SESSION_DURATION` | **Milliseconds** (`86400000` = 24h)    | A seconds value (`86400`) expires every session ~86s after sign-in. `validateAuthConfig` now refuses anything under a minute |
+| `ROLES_DEFAULT`    | A role listed in `ROLES_AVAILABLE`     | Registration throws at runtime                                                                                               |
+| `ORIGIN`           | The address people use                 | Emailed reset and confirmation links point at it, so a wrong one sends people somewhere else                                 |
+| `EMAIL_FROM`       | On a domain onboarded to Email Service | Nothing is sent; the reason is in the Worker's logs                                                                          |
 
 `SESSION_DURATION` and `LOCKOUT_DURATION` are milliseconds; `JWT_EXPIRY` is
 seconds. Nothing can validate a plausible-looking number, so check it by hand.
@@ -226,6 +258,11 @@ npm run dev                        # http://localhost:3000
 For local dev, `RP_ID` must be `localhost` and `ORIGIN` `http://localhost:3000`
 — `.dev.vars` overrides `wrangler.jsonc`, so set them there rather than
 editing the deployed config.
+
+Emails are not sent locally. With `EMAIL_FROM` empty (the default) each one is
+printed in the terminal running `npm run dev`, link included, so a reset or
+confirmation can be followed by copying it. Add `"remote": true` to the
+`send_email` binding to send real mail from a local run.
 
 `npm run create-admin:local -- --email you@example.com --generate` creates an
 admin directly, as an alternative to the bootstrap flow.

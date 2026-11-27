@@ -106,6 +106,19 @@
     },
   ],
 
+  // Cloudflare Email Service: password reset and "confirm your email" links.
+  // Sends nothing until EMAIL_FROM (below) is set to an address on a domain
+  // onboarded under Compute -> Email Service -> Email Sending. Sending to
+  // anyone needs the Workers Paid plan; on Free, only to addresses verified
+  // under Email Routing. Locally, `wrangler dev` simulates it and prints the
+  // message. Delete this block and EMAIL_FROM if the site sends no email.
+  // See docs/deploy.md, "Email".
+  "send_email": [
+    {
+      "name": "EMAIL",
+    },
+  ],
+
   // Edge rate limiting. `namespace_id` is an arbitrary number you pick per
   // limiter within this worker — it is NOT a resource to provision, so
   // nothing here needs changing. Used by the auth API to throttle login
@@ -180,6 +193,9 @@
     // access. See docs/deploy.md.
     "MAX_FAILED_LOGIN_ATTEMPTS": "5",
     "LOCKOUT_DURATION": "900000",
+    // "true": a signed-in user must confirm their email (the link sent at
+    // sign-up) before any guarded page opens. Needs email set up (EMAIL_FROM),
+    // or nobody, the first admin included, gets past /verify-email.
     "REQUIRE_EMAIL_VERIFICATION": "false",
     "REQUIRE_PHONE_VERIFICATION": "false",
     // Comma-separated allowlist. Empty means open registration.
@@ -197,6 +213,13 @@
     // ONLY while no admin exists yet, so it disarms itself the moment it
     // works. Safe to leave set; tidier to clear afterwards.
     "BOOTSTRAP_ADMIN_EMAIL": "",
+
+    // --- EMAIL ---
+    // CHANGE_ME — the From address for password resets and email
+    // confirmation, e.g. "noreply@example.com", on a domain onboarded to
+    // Email Service. The display name is APP_NAME. Empty: no email is sent,
+    // and "Forgot password?" is not offered.
+    "EMAIL_FROM": "",
 
     // --- ROLES & PERMISSIONS ---
     // CHANGE_ME — model your own resources here. Convention:

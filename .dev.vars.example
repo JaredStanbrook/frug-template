@@ -25,10 +25,13 @@ ACCESS_GATE_PATHS=""
 ALLOWED_EMAILS=""
 REQUIRE_EMAIL_VERIFICATION="false"
 
+# --- Email ------------------------------------------------------------
+# Leave EMAIL_FROM empty locally and reset / confirmation emails are printed
+# to the terminal, links included, instead of sent. Set it (an address on a
+# domain onboarded to Email Service) to go through the simulated binding;
+# add "remote": true to the send_email binding to send for real.
+EMAIL_FROM=""
+
 # --- Optional providers ----------------------------------------------
-# Only needed if AUTH_METHODS includes "email" or "sms".
-# SMTP_HOST="smtp.example.com"
-# SMTP_PORT="587"
-# SMTP_USER=""
-# SMTP_PASS=""
+# Only needed if AUTH_METHODS includes "sms".
 # SMS_PROVIDER_API_KEY=""
