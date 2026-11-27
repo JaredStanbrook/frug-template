@@ -129,7 +129,9 @@ otherwise, so the same handler serves a swap and a direct visit or refresh.
 
 **Feedback** — `htmxToast()` attaches a toast to the current response;
 `flashToast()` writes a short-lived cookie so a message survives a redirect.
-Both are consumed by the `<app-toaster>` element.
+In the browser, `toast()` shows one at once and `redirectWithToast()` writes
+the same cookie before navigating. All are shown by the `<app-toaster>`
+element.
 
 **Client state** — only where the server cannot hold it: WebAuthn ceremonies
 (browser-only APIs), theme preference (`localStorage`), modals.

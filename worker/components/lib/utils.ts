@@ -6,7 +6,13 @@ export const api = client.api;
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
-const FLASH_TOAST_KEY = "pending_toast";
+/**
+ * The cookie that carries a toast across a navigation. The server writes it
+ * with `flashToast` (worker/lib/htmx-helpers.ts) and `redirectWithToast` below
+ * writes the same one, so one reader shows both. Listed in
+ * worker/config/cookies.config.ts as strictly necessary.
+ */
+const FLASH_COOKIE = "flash-toast";
 
 /**
  * Structural subset of a fetch response.
@@ -56,38 +62,35 @@ export function redirectWithToast(
   description: string = "",
   type: ToastType = "success",
 ) {
-  const toastData = {
-    message,
-    description,
-    type,
-    duration: 5000,
-  };
+  const toast = { message, description, type, duration: 5000 };
 
-  // Save to session storage
-  sessionStorage.setItem(FLASH_TOAST_KEY, JSON.stringify(toastData));
+  // Into the flash cookie, which the toaster on the next page reads. This used
+  // to go into sessionStorage under a key nothing read, so every toast sent
+  // across a redirect ("Login successful!", "Logged out") was silently lost.
+  document.cookie =
+    `${FLASH_COOKIE}=${encodeURIComponent(JSON.stringify({ toast }))}` +
+    "; path=/; max-age=5; samesite=lax";
 
   // Perform hard redirect
   window.location.href = url;
 }
 
+/** Read and clear the flash toast, if there is one. */
 export function getFlashToast() {
-  const name = "flash-toast=";
-  const decodedCookie = decodeURIComponent(document.cookie);
-  const ca = decodedCookie.split(";");
+  const entry = document.cookie
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${FLASH_COOKIE}=`));
+  if (!entry) return null;
 
-  for (let i = 0; i < ca.length; i++) {
-    const c = ca[i].trim();
-    if (c.indexOf(name) === 0) {
-      const jsonStr = c.substring(name.length, c.length);
-      try {
-        const data = JSON.parse(jsonStr);
-        // DELETE COOKIE: Set expiry to the past
-        document.cookie = "flash-toast=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-        return data.toast; // Returns { message, description, type, etc. }
-      } catch {
-        return null;
-      }
-    }
+  // Cleared first, so a message that cannot be read is not retried on every page.
+  document.cookie = `${FLASH_COOKIE}=; max-age=0; path=/`;
+  try {
+    // Only this cookie's value is decoded: decoding the whole cookie string,
+    // as this once did, threw on any other cookie holding a stray "%", and
+    // split a message containing ";" in two.
+    return JSON.parse(decodeURIComponent(entry.slice(FLASH_COOKIE.length + 1))).toast ?? null;
+  } catch {
+    return null;
   }
-  return null;
 }

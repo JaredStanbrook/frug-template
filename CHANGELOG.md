@@ -10,6 +10,33 @@ Sites built from the template read these sections when they upgrade, so write
 each one for a site owner: what changed, and anything they must do by hand.
 See `docs/template-versions.md`.
 
+## [0.6.1] - 2026-11-27
+
+### Toasts
+
+- **Toasts sent across a client-side redirect now appear.** "Login
+  successful!", "Logged out successfully", "Account created successfully!"
+  and every other `redirectWithToast` message were written to
+  `sessionStorage` under a key nothing read, so they were never shown. They
+  now go in the `flash-toast` cookie the server's `flashToast` already uses
+  (listed in `cookies.config.ts` as strictly necessary), and the one reader
+  shows both.
+- Screen readers announce toasts (an `aria-live` region that is always on
+  the page).
+- A toast stops counting down while the pointer or keyboard focus is on it.
+- Errors stay at least 8 seconds, however short a duration they were given.
+- At most three at once, newest on top; the same message again restarts the
+  one showing instead of stacking a copy.
+- They now sit top right, under the nav, instead of bottom right, where they
+  covered the cookie banner's buttons. A coloured edge marks the type, they
+  use the `popover` theme tokens, and they slide away when closed (no motion
+  with reduced motion on).
+- Reading the flash cookie no longer throws when another cookie holds a
+  stray `%`, and a message containing `;` is no longer cut in two.
+
+**By hand:** nothing. If your own code read `sessionStorage.pending_toast`,
+read the toast with `getFlashToast()` instead.
+
 ## [0.6.0] - 2026-11-27
 
 ### Email, password reset and confirming an address
